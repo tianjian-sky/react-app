@@ -13,7 +13,13 @@ export default class extends React.Component {
         // c2d.fillStyle = 'rgba(0,0,255,1.0)'
         // c2d.fillRect(120,10,150,150)
         let gl = c.getContext('webgl')
-        gl.clearColor(0,0,0,1)
+        gl.clearColor(0,0.222,.333,1)
+        /*
+        * gl.clear() 清空缓冲！
+        颜色缓冲区
+        深度缓冲区
+        模板缓冲区
+        */
         gl.clear(gl.COLOR_BUFFER_BIT)
     }
     componentDidMount() {
