@@ -4,7 +4,7 @@ export default class extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            title: '1-2',
+            title: '1-3',
         }
     }
     draw() {
@@ -13,8 +13,9 @@ export default class extends React.Component {
 
         // 顶点着色器
         const VSHADER_SOURCE = `
+            attribute vec4 a_Position;
             void main(){
-                gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+                gl_Position = a_Position;
                 gl_PointSize = 10.0;
             }
         `
@@ -41,6 +42,13 @@ export default class extends React.Component {
             const info = gl.getProgramInfoLog(program);
             throw "Could not compile WebGL program. \n\n" + info;
         }
+
+        var a_Position = gl.getAttribLocation(program, 'a_Position')
+        if (a_Position < 0) {
+            console.log('Failed to get the storage location of a_position')
+        }
+
+        gl.vertexAttrib3f(a_Position, .52, .13, .14)
 
         gl.useProgram(program);
         gl.program = program;
