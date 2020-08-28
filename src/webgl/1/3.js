@@ -5,11 +5,14 @@ export default class extends React.Component {
         super(props);
         this.state = {
             title: '1-3',
+            gl: null,
+            points: []
         }
     }
     draw() {
         let c = this.refs.canvas
         let gl = c.getContext('webgl')
+        this.state.gl = gl
 
         // 顶点着色器
         const VSHADER_SOURCE = `
@@ -44,11 +47,13 @@ export default class extends React.Component {
         }
 
         var a_Position = gl.getAttribLocation(program, 'a_Position')
+        var invalid_Position = gl.getAttribLocation(program, 'b_Position')
+        console.log('attribute location:', a_Position, invalid_Position)
         if (a_Position < 0) {
             console.log('Failed to get the storage location of a_position')
         }
-
-        gl.vertexAttrib3f(a_Position, .52, .13, .14)
+        // gl.vertexAttrib1f, gl.vertexAttrib2f... gl.vertexAttrib4fv
+        gl.vertexAttrib3f(a_Position, 1, 1, 1, 0)
 
         gl.useProgram(program);
         gl.program = program;
@@ -57,6 +62,23 @@ export default class extends React.Component {
         gl.clear(gl.COLOR_BUFFER_BIT)
 
         gl.drawArrays(gl.POINTS, 0, 1)
+    }
+    drawPoint (e) {
+        console.warn(e, e.clientX, e.clientY)
+        let bbox = e.target.getBoundingClientRect()
+        let x = (e.clientX - bbox.left) / bbox.width
+        let y = (e.clientY - bbox.top) / bbox.height
+        this.state.points.push([x, y])
+        
+        this.state.points.forEach(p => {
+            var a_Position = this.state.gl.getAttribLocation(this.state.gl.program, 'a_Position')
+            if (a_Position < 0) {
+                console.log('Failed to get the storage location of a_position')
+            }
+            this.state.gl.vertexAttrib3f(a_Position, p[0], p[1], 1, 1)
+            this.state.gl.drawArrays(this.state.gl.POINTS, 0, 1)
+        })
+        
     }
     componentDidMount() {
         this.draw()
@@ -86,7 +108,7 @@ export default class extends React.Component {
         return (
             <div id="1-1" className="webgl contaner">
                 <h3 className="title">{this.state.title}</h3>
-                <canvas className="webgl" width="400" height="400" ref="canvas" ></canvas>
+                <canvas className="webgl" width="400" height="400" ref="canvas" onClick={(e) => this.drawPoint(e)}></canvas>
             </div>
         );
     }
