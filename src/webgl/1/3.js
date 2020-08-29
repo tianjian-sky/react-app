@@ -25,8 +25,10 @@ export default class extends React.Component {
 
         //片元着色器
         const FSHADER_SOURCE = `
+            precision mediump float;
+            uniform vec4 u_FragColor;
             void main () {
-                gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+                gl_FragColor = u_FragColor;
             }
         `
         
@@ -47,14 +49,13 @@ export default class extends React.Component {
         }
 
         var a_Position = gl.getAttribLocation(program, 'a_Position')
-        var invalid_Position = gl.getAttribLocation(program, 'b_Position')
-        console.log('attribute location:', a_Position, invalid_Position)
-        if (a_Position < 0) {
+        var u_FragColor = gl.getUniformLocation(program, 'u_FragColor')
+        if (a_Position < 0 || u_FragColor < 0) {
             console.log('Failed to get the storage location of a_position')
         }
         // gl.vertexAttrib1f, gl.vertexAttrib2f... gl.vertexAttrib4fv
         gl.vertexAttrib3f(a_Position, 1, 1, 1, 0)
-
+        gl.uniform4f(u_FragColor, 0.5, 0.2, 1, 1)
         gl.useProgram(program);
         gl.program = program;
 
@@ -64,18 +65,24 @@ export default class extends React.Component {
         gl.drawArrays(gl.POINTS, 0, 1)
     }
     drawPoint (e) {
-        console.warn(e, e.clientX, e.clientY)
         let bbox = e.target.getBoundingClientRect()
-        let x = (e.clientX - bbox.left) / bbox.width
-        let y = (e.clientY - bbox.top) / bbox.height
+        
+        // 坐标原点在canvas中心
+        let x = (e.clientX - bbox.left - .5 * bbox.width) / (.5 * bbox.width)
+        let y = (.5 * bbox.height - (e.clientY - bbox.top)) / (.5 * bbox.height)
         this.state.points.push([x, y])
+        this.state.gl.clearColor(0,0.222,.333,1)
+        this.state.gl.clear(this.state.gl.COLOR_BUFFER_BIT)
         
         this.state.points.forEach(p => {
             var a_Position = this.state.gl.getAttribLocation(this.state.gl.program, 'a_Position')
-            if (a_Position < 0) {
+            var u_FragColor = this.state.gl.getUniformLocation(this.state.gl.program, 'u_FragColor')
+            if (a_Position < 0 || u_FragColor < 0) {
                 console.log('Failed to get the storage location of a_position')
             }
+            
             this.state.gl.vertexAttrib3f(a_Position, p[0], p[1], 1, 1)
+            this.state.gl.uniform4f(u_FragColor, Math.random(), Math.random(), Math.random(), 1)
             this.state.gl.drawArrays(this.state.gl.POINTS, 0, 1)
         })
         
