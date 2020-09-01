@@ -4,7 +4,7 @@ export default class extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            title: '2-1',
+            title: '2-2',
             gl: null,
             points: []
         }
@@ -19,7 +19,7 @@ export default class extends React.Component {
             attribute vec4 a_Position;
             void main(){
                 gl_Position = a_Position;
-                gl_PointSize = 10.0;
+                //gl_PointSize = 10.0;
             }
         `
 
@@ -80,7 +80,7 @@ export default class extends React.Component {
         gl.clearColor(0,0.222,.333,1)
         gl.clear(gl.COLOR_BUFFER_BIT)
 
-        gl.drawArrays(gl.POINTS, 0, n)
+        gl.drawArrays(gl.TRIANGLES, 0, n)
     }
 
     
