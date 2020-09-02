@@ -4,7 +4,7 @@ export default class extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            title: '2-2',
+            title: '2-3',
             gl: null,
             points: []
         }
@@ -17,8 +17,9 @@ export default class extends React.Component {
         // 顶点着色器
         const VSHADER_SOURCE = `
             attribute vec4 a_Position;
+            uniform vec4 u_Transition;
             void main(){
-                gl_Position = a_Position;
+                gl_Position = a_Position + u_Transition; // 平移
                 //gl_PointSize = 10.0;
             }
         `
@@ -47,16 +48,14 @@ export default class extends React.Component {
             const info = gl.getProgramInfoLog(program);
             throw "Could not compile WebGL program. \n\n" + info;
         }
-        gl.useProgram(program);
+        gl.useProgram(program); // 一定要在变量赋值以前
         gl.program = program;
 
         // 设置顶点
-
-        let vertices = new Float32Array([0,0.5,-0.5,-0.5,0.5,-0.5])
-        let n = 3
+        let vertices = new Float32Array([-.5,.5,-.5,-.5,.5,.5,.5,-.5])
+        let n = 4
 
         let vertixBuffer = gl.createBuffer() // 缓冲区对象
-        console.warn(vertixBuffer)
         if (!vertixBuffer) {
             console.warn('缓冲区对象创建失败')
             return -1
@@ -64,24 +63,27 @@ export default class extends React.Component {
         gl.bindBuffer(gl.ARRAY_BUFFER, vertixBuffer) // 将给定的WebGLBuffer绑定到目标。ARRAY_BUFFER，ELEMENT_ARRAY_BUFFER，UNIFORM_BUFFER。。
         gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW) // 创建并初始化了Buffer对象的数据存储区。
 
-        var a_Position = gl.getAttribLocation(program, 'a_Position')
+        let a_Position = gl.getAttribLocation(program, 'a_Position')
         gl.vertexAttribPointer(a_Position, 2, gl.FLOAT, false, 0, 0) // 绑定buffer到vertex attribute
         gl.enableVertexAttribArray(a_Position) // 激活每一个属性以便使用，不被激活的属性是不会被使用的。一旦激活，以下其他方法就可以获取到属性的值了，包括vertexAttribPointer()，vertexAttrib*()，和 getVertexAttrib()。
         // 在WebGL中，作用于顶点的数据会先储存在attributes。这些数据仅对JavaScript代码和顶点着色器可用。
         // 属性由索引号引用到GPU维护的属性列表中。在不同的平台或GPU上，某些顶点属性索引可能具有预定义的值。创建属性时，WebGL层会分配其他属性。
 
-        var u_FragColor = gl.getUniformLocation(program, 'u_FragColor')
-        if (a_Position < 0 || u_FragColor < 0) {
+        let u_FragColor = gl.getUniformLocation(program, 'u_FragColor')
+        let u_Transition = gl.getUniformLocation(program, 'u_Transition')
+
+        if (a_Position < 0 || u_FragColor < 0 || u_Transition < 0) {
             console.log('Failed to get the storage location of a_position')
         }
 
-        gl.uniform4f(u_FragColor, 0.5, 0.2, 1, 1)
-        
+        gl.uniform4f(u_FragColor, Math.random(), Math.random(), Math.random(), 1)
+        gl.uniform4f(u_Transition, .1, .1, 0, 0)
 
         gl.clearColor(0,0.222,.333,1)
         gl.clear(gl.COLOR_BUFFER_BIT)
 
-        gl.drawArrays(gl.TRIANGLES, 0, n)
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, n)
+        // gl.drawArrays(gl.LINE_LOOP, 0, n)
     }
 
     
