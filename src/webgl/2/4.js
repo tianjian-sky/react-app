@@ -4,7 +4,7 @@ export default class extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            title: '2-3平移',
+            title: '2-4 旋转',
             gl: null,
             points: []
         }
@@ -17,9 +17,12 @@ export default class extends React.Component {
         // 顶点着色器
         const VSHADER_SOURCE = `
             attribute vec4 a_Position;
-            uniform vec4 u_Transition;
+            uniform float u_SinB, u_CosB;
             void main(){
-                gl_Position = a_Position + u_Transition; // 平移
+                gl_Position.x = a_Position.x * u_CosB - a_Position.y * u_SinB; // 旋转
+                gl_Position.y = a_Position.x * u_SinB + a_Position.y * u_CosB;
+                gl_Position.z = 1.0;
+                gl_Position.w = 1.0;
                 //gl_PointSize = 10.0;
             }
         `
@@ -70,14 +73,21 @@ export default class extends React.Component {
         // 属性由索引号引用到GPU维护的属性列表中。在不同的平台或GPU上，某些顶点属性索引可能具有预定义的值。创建属性时，WebGL层会分配其他属性。
 
         let u_FragColor = gl.getUniformLocation(program, 'u_FragColor')
-        let u_Transition = gl.getUniformLocation(program, 'u_Transition')
 
-        if (a_Position < 0 || u_FragColor < 0 || u_Transition < 0) {
+        // 旋转
+        let rad = 30 * 180 / Math.PI 
+        
+        let u_SinB = gl.getUniformLocation(program, 'u_SinB')
+        let u_CosB = gl.getUniformLocation(program, 'u_CosB')
+
+        gl.uniform1f(u_SinB, Math.sin(rad))
+        gl.uniform1f(u_CosB, Math.cos(rad))
+
+        if (a_Position < 0 || u_FragColor < 0 || u_SinB < 0 || u_CosB < 0) {
             console.log('Failed to get the storage location of a_position')
         }
 
         gl.uniform4f(u_FragColor, Math.random(), Math.random(), Math.random(), 1)
-        gl.uniform4f(u_Transition, .1, .1, 0, 0)
 
         gl.clearColor(0,0.222,.333,1)
         gl.clear(gl.COLOR_BUFFER_BIT)
