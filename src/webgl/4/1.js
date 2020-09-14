@@ -58,35 +58,26 @@ export default class extends React.Component {
         let n = 4
 
 
-
-        let sizeBuffer = gl.createBuffer()
-        gl.bindBuffer(gl.ARRAY_BUFFER, sizeBuffer)
-        gl.bufferData(gl.ARRAY_BUFFER, sizes, gl.STATIC_DRAW)
-        let a_Size = gl.getAttribLocation(program, 'a_PointSize')
-        gl.vertexAttribPointer(a_Size, 1, gl.FLOAT, false, 0, 0) // 绑定buffer到vertex attribute
-        gl.enableVertexAttribArray(a_Size)
-
-
-
         let vertixBuffer = gl.createBuffer() // 缓冲区对象
-        
+        let sizeBuffer = gl.createBuffer()
+
         if (!vertixBuffer) {
             console.warn('缓冲区对象创建失败')
             return -1
         }
+        let a_Position = gl.getAttribLocation(program, 'a_Position')
         gl.bindBuffer(gl.ARRAY_BUFFER, vertixBuffer) // 将给定的WebGLBuffer绑定到目标。ARRAY_BUFFER，ELEMENT_ARRAY_BUFFER，UNIFORM_BUFFER。。
         gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW) // 创建并初始化了Buffer对象的数据存储区。
-        
-        
-
-        let a_Position = gl.getAttribLocation(program, 'a_Position')
-        
         gl.vertexAttribPointer(a_Position, 2, gl.FLOAT, false, 0, 0) // 绑定buffer到vertex attribute
         gl.enableVertexAttribArray(a_Position) // 激活每一个属性以便使用，不被激活的属性是不会被使用的。一旦激活，以下其他方法就可以获取到属性的值了，包括vertexAttribPointer()，vertexAttrib*()，和 getVertexAttrib()。
         // 在WebGL中，作用于顶点的数据会先储存在attributes。这些数据仅对JavaScript代码和顶点着色器可用。
         // 属性由索引号引用到GPU维护的属性列表中。在不同的平台或GPU上，某些顶点属性索引可能具有预定义的值。创建属性时，WebGL层会分配其他属性。
         
-        
+        let a_Size = gl.getAttribLocation(program, 'a_PointSize')
+        gl.bindBuffer(gl.ARRAY_BUFFER, sizeBuffer)
+        gl.bufferData(gl.ARRAY_BUFFER, sizes, gl.STATIC_DRAW)
+        gl.vertexAttribPointer(a_Size, 1, gl.FLOAT, false, 0, 0) // 绑定buffer到vertex attribute
+        gl.enableVertexAttribArray(a_Size)
 
 
         let u_FragColor = gl.getUniformLocation(program, 'u_FragColor')
