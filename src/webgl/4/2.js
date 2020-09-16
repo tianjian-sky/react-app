@@ -116,7 +116,7 @@ export default class extends React.Component {
         gl.clearColor(0,0.222,.333,1)
         gl.clear(gl.COLOR_BUFFER_BIT)
 
-        gl.drawArrays(gl.TRIANGLE, 0, n)
+        gl.drawArrays(gl.TRIANGLES, 0, n)
         // gl.drawArrays(gl.LINE_LOOP, 0, n)
     }
 
