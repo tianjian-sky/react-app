@@ -1,51 +1,30 @@
 import React from 'react';
 import pic from '../../static/sky.jpg';
+import pic2 from '../../static/circle.gif';
 
 export default class extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            title: '4-4 纹理',
+            title: '4-5 多纹理',
             points: [],
             textureReady: false,
         }
     }
     draw() {
         let c = this.refs.canvas
-        let c2 = this.refs.canvas2
-        let c3 = this.refs.canvas3
         let gl = c.getContext('webgl')
-        let gl2 = c2.getContext('webgl')
-        let gl3 = c3.getContext('webgl')
         this.prepareGl(gl, new Float32Array([
                 -0.5,0.5,0.0,1.0,
                 -0.5,-0.5,0.0,0.0,
                 0.5,0.5,1.0,1.0,
                 0.5,-0.5,1.0,0.0
         ])).then(gl => {
-            this.initTexture(gl, pic, (gl, image) => {
+            this.initTexture(gl, pic, 0, (gl) => {
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR) // 设置纹理参数
             })
-        })
-        this.prepareGl(gl2, new Float32Array([
-            -0.5,0.5,-0.3,1.7,
-            -0.5,-0.5,-0.3,0.2,
-            0.5,0.5,1.7,1.7,
-            0.5,-0.5,1.7,-0.2
-        ])).then(gl => {
-            this.initTexture(gl, pic, (gl, image) => {
+            this.initTexture(gl, pic2, 1, (gl) => {
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR) // 设置纹理参数
-            })
-        })
-        this.prepareGl(gl3, new Float32Array([
-            -0.5,0.5,-0.3,1.7,
-            -0.5,-0.5,-0.3,0.2,
-            0.5,0.5,1.7,1.7,
-            0.5,-0.5,1.7,-0.2
-        ])).then(gl => {
-            this.initTexture(gl, pic, (gl, image) => {
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR) // 设置纹理参数
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE) // 设置纹理参数
             })
         })
     }
@@ -77,10 +56,13 @@ export default class extends React.Component {
             #ifdef GL_ES
             precision mediump float;
             #endif
-            uniform sampler2D u_Sampler;
+            uniform sampler2D u_Sampler0;
+            uniform sampler2D u_Sampler1;
             varying vec2 v_TexCoord;
             void main () {
-                gl_FragColor = texture2D(u_Sampler, v_TexCoord);
+                vec4 color0 = texture2D(u_Sampler0, v_TexCoord);
+                vec4 color1 = texture2D(u_Sampler1, v_TexCoord);
+                gl_FragColor = color0 * color1;
             }
         `
         
@@ -102,12 +84,8 @@ export default class extends React.Component {
         }
         gl.useProgram(program); // 一定要在变量赋值以前
         gl.program = program;
-
-
         
         let n = 4
-
-
         let vertexTexCoordBuffer = gl.createBuffer() // 缓冲区对象
 
         if (!vertexTexCoordBuffer) {
@@ -156,9 +134,9 @@ export default class extends React.Component {
         return shader;
     }
 
-    initTexture (gl, pic, cb) {
+    initTexture (gl, pic, index, cb) {
         let texture = gl.createTexture() //创建并初始化了一个WebGLTexture 目标
-        let u_Sampler = gl.getUniformLocation(gl.program, 'u_Sampler')
+        let u_Sampler = gl.getUniformLocation(gl.program, 'u_Sampler'+index)
         let image = new Image()
         image.onload = () => {
             this.setState({
@@ -168,7 +146,7 @@ export default class extends React.Component {
             /**
              * webgl至少支持八个纹理单元gl.TEXTURE0,gl.TEXTURE1,...
              */
-            gl.activeTexture(gl.TEXTURE0) // 激活指定的纹理单元
+            gl.activeTexture(gl[`TEXTURE${index}`]) // 激活指定的纹理单元
             gl.bindTexture(gl.TEXTURE_2D, texture) // 将给定的 WebGLTexture 绑定到目标
             /**
              * 
@@ -182,7 +160,7 @@ export default class extends React.Component {
             
             cb && cb(gl, image)
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image) // 指定了二维纹理图像
-            gl.uniform1i(u_Sampler, 0) // 将纹理单元传递给片元着色器
+            gl.uniform1i(u_Sampler, index) // 将纹理单元传递给片元着色器
             gl.clearColor(0,0.222,.333,1)
             gl.clear(gl.COLOR_BUFFER_BIT)
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, gl.n)
@@ -195,10 +173,8 @@ export default class extends React.Component {
             <div id="2-1" className="webgl contaner">
                 <h3 className="title">{this.state.title}</h3>
                 材质：{this.state.textureReady ? '已加载' : '未加载'}
-                <p><img src={pic}/></p>
+                <p><img src={pic}/><img src={pic2}/></p>
                 <canvas className="webgl" width="400" height="400" ref="canvas" style={{margin:'5px'}}></canvas>
-                <canvas className="webgl" width="400" height="400" ref="canvas2" style={{margin:'5px'}}></canvas>
-                <canvas className="webgl" width="400" height="400" ref="canvas3" style={{margin:'5px'}}></canvas>
             </div>
         );
     }
