@@ -7,7 +7,12 @@ export default class extends React.Component {
         this.state = {
             title: '5-1 改变视线',
             gl: null,
-            points: []
+            points: [],
+            eyeAt: {
+                x: 0.2,
+                y: 0.25,
+                z: 0.25
+            }
         }
     }
     draw() {
@@ -68,8 +73,8 @@ export default class extends React.Component {
         ])
         const FSIZE = verticesColors.BYTES_PER_ELEMENT // TypedArray.BYTES_PER_ELEMENT 属性代表了强类型数组中每个元素所占用的字节数。
         const STEP = FSIZE*6
-        let n = 9
-
+        const n = 9
+        gl.n = n
 
         let vertixBuffer = gl.createBuffer() // 缓冲区对象
 
@@ -79,30 +84,65 @@ export default class extends React.Component {
         }
         let a_Position = gl.getAttribLocation(program, 'a_Position')
         let a_Color = gl.getAttribLocation(program, 'a_Color')
+        if (a_Position < 0 || a_Color < 0) {
+            console.log('Failed to get the storage location of a_position')
+        }
         gl.bindBuffer(gl.ARRAY_BUFFER, vertixBuffer) // 将给定的WebGLBuffer绑定到目标。ARRAY_BUFFER，ELEMENT_ARRAY_BUFFER，UNIFORM_BUFFER。。
         gl.bufferData(gl.ARRAY_BUFFER, verticesColors, gl.STATIC_DRAW) // 创建并初始化了Buffer对象的数据存储区。
         gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, STEP, 0) // 绑定buffer到vertex attribute
         gl.enableVertexAttribArray(a_Position) // 激活每一个属性以便使用，不被激活的属性是不会被使用的。一旦激活，以下其他方法就可以获取到属性的值了，包括vertexAttribPointer()，vertexAttrib*()，和 getVertexAttrib()。
         gl.vertexAttribPointer(a_Color, 3, gl.FLOAT, false, STEP, FSIZE*3) // 绑定buffer到vertex attribute
         gl.enableVertexAttribArray(a_Color)
-
+        this.rePaint(gl)
+    }
+    rePaint (gl) {
         let viewMatrix = new cuon.Matrix4()
-        viewMatrix.setLookAt(.2,.25,.25,0,0,0,0,1,0) // 视点(.2,.25,.25) 观察点（0，0，0）上方向（0，1，0）
+        viewMatrix.setLookAt(this.state.eyeAt.x, this.state.eyeAt.y, this.state.eyeAt.z,0,0,0,0,1,0) // 视点(.2,.25,.25) 观察点（0，0，0）上方向（0，1，0）
         let u_ViewMatrix = gl.getUniformLocation(gl.program, 'u_ViewMatrix')
         gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements)
 
-
-        if (a_Position < 0 || u_ViewMatrix < 0) {
+        if (u_ViewMatrix < 0) {
             console.log('Failed to get the storage location of a_position')
         }
         gl.clearColor(0,0.222,.333,1)
         gl.clear(gl.COLOR_BUFFER_BIT)
-        gl.drawArrays(gl.TRIANGLES, 0, n)
+        gl.drawArrays(gl.TRIANGLES, 0, gl.n)
     }
-
-    
+    listenKeyDown (e) {
+        e.preventDefault()
+        if (e.keyCode == 39) { // right
+            this.setState({
+                eyeAt: Object.assign(this.state.eyeAt, {
+                    x: this.state.eyeAt.x - 0.01
+                })
+            })
+        }
+        if (e.keyCode == 37) { // left
+            this.setState({
+                eyeAt: Object.assign(this.state.eyeAt, {
+                    x: this.state.eyeAt.x + 0.01
+                })
+            })
+        }
+        if (e.keyCode == 38) { // up
+            this.setState({
+                eyeAt: Object.assign(this.state.eyeAt, {
+                    y: this.state.eyeAt.y + 0.01
+                })
+            })
+        }
+        if (e.keyCode == 40) { // down
+            this.setState({
+                eyeAt: Object.assign(this.state.eyeAt, {
+                    y: this.state.eyeAt.y - 0.01
+                })
+            })
+        }
+        this.rePaint(this.state.gl)
+    }
     componentDidMount() {
         this.draw()
+        document.body.addEventListener('keydown', this.listenKeyDown.bind(this))
     }
     loadShader (gl, type, source) {
         // Create shader object
