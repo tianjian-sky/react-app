@@ -5,13 +5,21 @@ export default class extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            title: '5-1 改变视线',
+            title: '5-2 正交投影',
             gl: null,
             points: [],
             eyeAt: {
                 x: 0.2,
                 y: 0.25,
                 z: 0.25
+            },
+            orth: {
+                gNear: -1,
+                gFar: 1,
+                gLeft: -1,
+                gRight: 1,
+                gBottom: -1,
+                gTop: 1
             }
         }
     }
@@ -24,10 +32,10 @@ export default class extends React.Component {
         const VSHADER_SOURCE = `
             attribute vec4 a_Position;
             attribute vec4 a_Color;
-            uniform mat4 u_ViewMatrix;
+            uniform mat4 u_ProjMatrix;
             varying vec4 v_Color;
             void main(){
-                gl_Position = u_ViewMatrix * a_Position;
+                gl_Position = u_ProjMatrix * a_Position;
                 v_Color = a_Color;
             }
         `
@@ -96,12 +104,12 @@ export default class extends React.Component {
         this.rePaint(gl)
     }
     rePaint (gl) {
-        let viewMatrix = new cuon.Matrix4()
-        viewMatrix.setLookAt(this.state.eyeAt.x, this.state.eyeAt.y, this.state.eyeAt.z,0,0,0,0,1,0) // 视点(.2,.25,.25) 观察点（0，0，0）上方向（0，1，0）
-        let u_ViewMatrix = gl.getUniformLocation(gl.program, 'u_ViewMatrix')
-        gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements)
+        let projMatrix = new cuon.Matrix4()
+        projMatrix.setOrtho(this.state.orth.gLeft,this.state.orth.gRight,this.state.orth.gBottom,this.state.orth.gTop,this.state.orth.gNear, this.state.orth.gFar) // 设置正交投影矩阵，定义盒装可视空间
+        let u_ProjMatrix = gl.getUniformLocation(gl.program, 'u_ProjMatrix')
+        gl.uniformMatrix4fv(u_ProjMatrix, false, projMatrix.elements)
 
-        if (u_ViewMatrix < 0) {
+        if (u_ProjMatrix < 0) {
             console.log('Failed to get the storage location of a_position')
         }
         gl.clearColor(0,0.222,.333,1)
@@ -112,29 +120,57 @@ export default class extends React.Component {
         e.preventDefault()
         if (e.keyCode == 39) { // right
             this.setState({
-                eyeAt: Object.assign(this.state.eyeAt, {
-                    x: this.state.eyeAt.x - 0.01
+                orth: Object.assign(this.state.orth, {
+                    gNear: this.state.orth.gNear + 0.01
                 })
             })
         }
         if (e.keyCode == 37) { // left
             this.setState({
-                eyeAt: Object.assign(this.state.eyeAt, {
-                    x: this.state.eyeAt.x + 0.01
+                orth: Object.assign(this.state.orth, {
+                    gNear: this.state.orth.gNear - 0.01
                 })
             })
         }
         if (e.keyCode == 38) { // up
             this.setState({
-                eyeAt: Object.assign(this.state.eyeAt, {
-                    y: this.state.eyeAt.y + 0.01
+                orth: Object.assign(this.state.orth, {
+                    gFar: this.state.orth.gFar + 0.01
                 })
             })
         }
         if (e.keyCode == 40) { // down
             this.setState({
-                eyeAt: Object.assign(this.state.eyeAt, {
-                    y: this.state.eyeAt.y - 0.01
+                orth: Object.assign(this.state.orth, {
+                    gFar: this.state.orth.gFar - 0.01
+                })
+            })
+        }
+        if (e.keyCode == 65) { // A
+            this.setState({
+                orth: Object.assign(this.state.orth, {
+                    gLeft: this.state.orth.gLeft - 0.01
+                })
+            })
+        }
+        if (e.keyCode == 68) { // D
+            this.setState({
+                orth: Object.assign(this.state.orth, {
+                    gRight: this.state.orth.gRight + 0.01
+                })
+            })
+        }
+        if (e.keyCode == 87) { // W
+            this.setState({
+                orth: Object.assign(this.state.orth, {
+                    gTop: this.state.orth.gTop - 0.01
+                })
+            })
+        }
+        if (e.keyCode == 83) { // S
+            this.setState({
+                orth: Object.assign(this.state.orth, {
+                    gBottom: this.state.orth.gBottom + 0.01
                 })
             })
         }
@@ -169,9 +205,12 @@ export default class extends React.Component {
         return (
             <div id="2-1" className="webgl contaner">
                 <h3 className="title">{this.state.title}</h3>
-                <p>视点:({this.state.eyeAt.x},{this.state.eyeAt.y},{this.state.eyeAt.z})</p>
-                <p>观察点:(0,0,0)</p>
-                <p>上方向:(0,1,0)</p>
+                <p>Near:{this.state.orth.gNear}</p>
+                <p>Far:{this.state.orth.gFar}</p>
+                <p>Left:{this.state.orth.gLeft}</p>
+                <p>Right:{this.state.orth.gRight}</p>
+                <p>Top:{this.state.orth.gTop}</p>
+                <p>Bottom:{this.state.orth.gBottom}</p>
                 <canvas className="webgl" width="400" height="400" ref="canvas" ></canvas>
             </div>
         );
