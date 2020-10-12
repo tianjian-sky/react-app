@@ -145,57 +145,44 @@ export default class extends React.Component {
         e.preventDefault()
         if (e.keyCode == 39) { // right
             this.setState({
-                orth: Object.assign(this.state.orth, {
-                    gNear: this.state.orth.gNear + 0.01
+                perspective: Object.assign(this.state.perspective, {
+                    perspective: this.state.perspective.perspective + 0.1
                 })
             })
         }
         if (e.keyCode == 37) { // left
             this.setState({
-                orth: Object.assign(this.state.orth, {
-                    gNear: this.state.orth.gNear - 0.01
+                perspective: Object.assign(this.state.perspective, {
+                    perspective: this.state.perspective.perspective - 0.1
                 })
             })
         }
         if (e.keyCode == 38) { // up
             this.setState({
-                orth: Object.assign(this.state.orth, {
-                    gFar: this.state.orth.gFar + 0.01
+                perspective: Object.assign(this.state.perspective, {
+                    fov: this.state.perspective.fov + 1
                 })
             })
         }
         if (e.keyCode == 40) { // down
             this.setState({
-                orth: Object.assign(this.state.orth, {
-                    gFar: this.state.orth.gFar - 0.01
+                perspective: Object.assign(this.state.perspective, {
+                    fov: this.state.perspective.fov - 1
                 })
             })
         }
-        if (e.keyCode == 65) { // A
+
+        if (e.keyCode == 83) { // D
             this.setState({
-                orth: Object.assign(this.state.orth, {
-                    gLeft: this.state.orth.gLeft - 0.01
-                })
-            })
-        }
-        if (e.keyCode == 68) { // D
-            this.setState({
-                orth: Object.assign(this.state.orth, {
-                    gRight: this.state.orth.gRight + 0.01
+                perspective: Object.assign(this.state.perspective, {
+                    gNear: this.state.perspective.gNear + 1
                 })
             })
         }
         if (e.keyCode == 87) { // W
             this.setState({
-                orth: Object.assign(this.state.orth, {
-                    gTop: this.state.orth.gTop - 0.01
-                })
-            })
-        }
-        if (e.keyCode == 83) { // S
-            this.setState({
-                orth: Object.assign(this.state.orth, {
-                    gBottom: this.state.orth.gBottom + 0.01
+                perspective: Object.assign(this.state.perspective, {
+                    gFar: this.state.perspective.gFar - 1
                 })
             })
         }
