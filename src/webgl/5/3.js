@@ -30,11 +30,12 @@ export default class extends React.Component {
         const VSHADER_SOURCE = `
             attribute vec4 a_Position;
             attribute vec4 a_Color;
+            uniform mat4 u_ModelMatrix;
             uniform mat4 u_ViewMatrix;
             uniform mat4 u_ProjMatrix;
             varying vec4 v_Color;
             void main(){
-                gl_Position = u_ProjMatrix * u_ViewMatrix * a_Position;
+                gl_Position = u_ProjMatrix * u_ViewMatrix * u_ModelMatrix * a_Position;
                 v_Color = a_Color;
             }
         `
@@ -68,33 +69,22 @@ export default class extends React.Component {
 
         // 设置顶点
         let verticesColors = new Float32Array([
-            .75,1,-10,.4,1,.4,
-            .25,-1,-10,.4,1,.4,
-            1.25,-1,-10,1,.4,.4,
+            0,1,-30,.4,1,.4,
+            -.5,-1,-30,.4,1,.4,
+            .5,-1,-30,1,.4,.4,
 
-            .75,1,-2,1,1,.4,
-            .25,-1,-2,1,1,.4,
-            1.25,-1,-2,1,.4,.4,
+            0,1,-10,1,1,.4,
+            -.5,-1,-10,1,1,.4,
+            .5,-1,-10,1,.4,.4,
 
-            .75,1,0,.4,.4,1,
-            .25,-1,0,.4,.4,1,
-            1.25,-1,0,1,.4,.4,
+            0,1,-5,.4,.4,1,
+            -.5,-1,-5,.4,.4,1,
+            .5,-1,-5,1,.4,.4,
 
-            -.75,1,-10,.4,1,.4,
-            -1.25,-1,-10,.4,1,.4,
-            -.25,-1,-10,1,.4,.4,
-
-            -.75,1,-2,1,1,.4,
-            -1.25,-1,-2,1,1,.4,
-            -.25,-1,-2,1,.4,.4,
-
-            -.75,1,0,.4,.4,1,
-            -1.25,-1,0,.4,.4,1,
-            -.25,-1,0,1,.4,.4
         ])
         const FSIZE = verticesColors.BYTES_PER_ELEMENT // TypedArray.BYTES_PER_ELEMENT 属性代表了强类型数组中每个元素所占用的字节数。
         const STEP = FSIZE*6
-        const n = 18
+        const n = 9
         gl.n = n
 
         let vertixBuffer = gl.createBuffer() // 缓冲区对象
@@ -118,7 +108,7 @@ export default class extends React.Component {
     }
     rePaint (gl) {
         
-        let projMatrix = new cuon.Matrix4() // 投影矩阵 1.根据三角形与视点的距离对三角形进行缩小， 2.对三角形进行平移（近大远小，透视法）
+        let projMatrix = new cuon.Matrix4() // 投影矩阵 1.根据三角形与视点的距离对三角形进行缩小， 2.对三角形进行平移（近大远小，透视法），3.定义可视空间
         /**
          * 远，近边界必须都大于0
          * 近大远小
@@ -126,11 +116,19 @@ export default class extends React.Component {
         projMatrix.setPerspective(this.state.perspective.fov, this.state.perspective.perspective, this.state.perspective.gNear, this.state.perspective.gFar)
 
         let viewMatrix = new cuon.Matrix4() // 视图矩阵 改变视线
-        viewMatrix.setLookAt(1,1,5,0,0,-100,0,1,0)
+
+        let modelMatrix = new cuon.Matrix4()
+        
 
         
         let u_ViewMatrix = gl.getUniformLocation(gl.program, 'u_ViewMatrix')
         let u_ProjMatrix = gl.getUniformLocation(gl.program, 'u_ProjMatrix')
+        let u_ModelMatrix = gl.getUniformLocation(gl.program, 'u_ModelMatrix')
+
+
+
+
+        
         gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements)
         gl.uniformMatrix4fv(u_ProjMatrix, false, projMatrix.elements)
 
@@ -139,6 +137,13 @@ export default class extends React.Component {
         }
         gl.clearColor(0,0.222,.333,1)
         gl.clear(gl.COLOR_BUFFER_BIT)
+
+        viewMatrix.setLookAt(0,0,5,0,0,-100,0,1,0)
+        modelMatrix.setTranslate(.75,0,0)
+        gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements)
+        gl.drawArrays(gl.TRIANGLES, 0, gl.n)
+        modelMatrix.setTranslate(-.75,0,0)
+        gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements)
         gl.drawArrays(gl.TRIANGLES, 0, gl.n)
     }
     listenKeyDown (e) {
