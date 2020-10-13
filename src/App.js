@@ -1,6 +1,7 @@
 import React from 'react';
 import logo from './logo.svg';
 import {Game} from './game'
+import Webgl0 from './webgl/0'
 import Webgl1 from './webgl/1'
 import Webgl2 from './webgl/2'
 import Webgl3 from './webgl/3'
@@ -11,6 +12,7 @@ import {Route, Switch} from 'react-router-dom'
 
 const routeConfig = [
   { path: '/game', component: Game },
+  { path: '/webgl/0', component: Webgl0 },
   { path: '/webgl/1', component: Webgl1 },
   { path: '/webgl/2', component: Webgl2 },
   { path: '/webgl/3', component: Webgl3 },
