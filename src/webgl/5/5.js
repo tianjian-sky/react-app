@@ -5,7 +5,7 @@ export default class extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            title: '5-4 深度检测',
+            title: '5-5 深度冲突 & 多边形偏移',
             gl: null,
             points: [],
             eyeAt: {
@@ -19,7 +19,8 @@ export default class extends React.Component {
                 fov: 30,
                 perspective: 1
             },
-            depthTestEnable: false
+            depthTestEnable: true,
+            polygonOffsetEnable: false
         }
     }
     draw() {
@@ -74,23 +75,17 @@ export default class extends React.Component {
 
         // 设置顶点
         let verticesColors = new Float32Array([
-            0,1,-5,.4,.4,1,
-            -.5,-1,-5,.4,.4,1,
-            .5,-1,-5,1,.4,.4,
+            0,2.5,-5,0,1,0,
+            -2.5,-2.5,-5,0,1,0,
+            2.5,-2.5,-5,1,0,0,
 
-            0,1,-10,1,1,.4,
-            -.5,-1,-10,1,1,.4,
-            .5,-1,-10,1,.4,.4,
-
-            
-            0,1,-15,.4,1,.4,
-            -.5,-1,-15,.4,1,.4,
-            .5,-1,-15,1,.4,.4,
-
+            0,3,-5,1,0,0,
+            -3,-3,-5,1,1,0,
+            3,-3,-5,1,1,0,
         ])
         const FSIZE = verticesColors.BYTES_PER_ELEMENT // TypedArray.BYTES_PER_ELEMENT 属性代表了强类型数组中每个元素所占用的字节数。
         const STEP = FSIZE*6
-        const n = 9
+        const n = 6
         gl.n = n
 
         let vertixBuffer = gl.createBuffer() // 缓冲区对象
@@ -113,6 +108,7 @@ export default class extends React.Component {
         this.rePaint(gl)
     }
     rePaint (gl) {
+        
         
         let projMatrix = new cuon.Matrix4() // 投影矩阵 1.根据三角形与视点的距离对三角形进行缩小， 2.对三角形进行平移（近大远小，透视法），3.定义可视空间
         /**
@@ -143,33 +139,30 @@ export default class extends React.Component {
             console.log('Failed to get the storage location of a_position')
         }
 
-
+        viewMatrix.lookAt(3.06, 2.5, 10.0, 0, 0, -2, 0, 1, 0);
+        mvpMatrix.set(projMatrix).multiply(viewMatrix).multiply(modelMatrix)
         gl.clearColor(0,0.222,.333,1)
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
          // 深度检测开启
          if (this.state.depthTestEnable) {
             gl.enable(gl.DEPTH_TEST)
         } else {
             gl.disable(gl.DEPTH_TEST)
         }
-       
-
-        viewMatrix.setLookAt(0,0,5,0,0,-100,0,1,0)
-
-        modelMatrix.setTranslate(.75,0,0)
-        mvpMatrix.set(projMatrix).multiply(viewMatrix).multiply(modelMatrix)
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-        
+        // 多边形偏移开启
+        if (this.state.polygonOffsetEnable) {
+            gl.enable(gl.POLYGON_OFFSET_FILL)
+        } else {
+            gl.disable(gl.POLYGON_OFFSET_FILL)
+        }
         gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrix.elements)
         gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements)
+        gl.drawArrays(gl.TRIANGLES, 0, gl.n/2)
 
-
-        gl.drawArrays(gl.TRIANGLES, 0, gl.n)
-
-        modelMatrix.setTranslate(-.75,0,0)
-        mvpMatrix.set(projMatrix).multiply(viewMatrix).multiply(modelMatrix)
-        gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrix.elements)
-        gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements)
-        gl.drawArrays(gl.TRIANGLES, 0, gl.n)
+        if (this.state.polygonOffsetEnable) {
+            gl.polygonOffset(1,1)
+        }
+        gl.drawArrays(gl.TRIANGLES, gl.n/2, gl.n/2)
     }
     listenKeyDown (e) {
         e.preventDefault()
@@ -222,13 +215,14 @@ export default class extends React.Component {
         this.draw()
         document.body.addEventListener('keydown', this.listenKeyDown.bind(this))
     }
-    enableDepthTest(bol) {
+    enablePolygonOffsetEnable(bol) {
         this.setState({
-            depthTestEnable: bol
+            polygonOffsetEnable: bol
         })
         setTimeout(() => {
             this.rePaint(this.state.gl)
-        }, 0);   
+        },0)
+        
     }
     loadShader (gl, type, source) {
         // Create shader object
@@ -255,15 +249,15 @@ export default class extends React.Component {
         return (
             <div id="2-1" className="webgl contaner">
                 <h3 className="title">{this.state.title}</h3>
-                <h4>隐藏面消除：webgl默认安装顶点在缓冲区的顺序进行绘制，后绘制的图形会覆盖之前绘制的图形，隐藏面消除功能可以消除那些被遮挡的表面</h4>
+                <h4>多边形偏移</h4>
                 <p>fov:{this.state.perspective.fov}</p>
                 <p>Perspective:{this.state.perspective.perspective}</p>
                 <p>Near:{this.state.perspective.gNear}</p>
                 <p>Far:{this.state.perspective.gFar}</p>
-                隐藏面消除：{this.state.depthTestEnable ? '开启' : '关闭'}
+                多边形偏移:{this.state.polygonOffsetEnable ? '开启' : '关闭'}
                 <p>
-                    <button onClick={() => this.enableDepthTest(true)}>开启</button>&nbsp;&nbsp;&nbsp;
-                    <button onClick={() => this.enableDepthTest(false)}>关闭</button>
+                    <button onClick={() => this.enablePolygonOffsetEnable(true)}>开启</button>&nbsp;&nbsp;&nbsp;
+                    <button onClick={() => this.enablePolygonOffsetEnable(false)}>关闭</button>
                 </p>
                 <canvas className="webgl" width="400" height="400" ref="canvas"></canvas>
             </div>
