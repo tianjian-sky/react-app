@@ -5,7 +5,7 @@ export default class extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            title: '5-6 绘制立方体',
+            title: '5-7 涂色',
             gl: null,
             points: [],
             perspective: {
@@ -62,18 +62,26 @@ export default class extends React.Component {
         gl.program = program;
 
         // 设置顶点
-        let verticesColors = new Float32Array([
-            // Vertex coordinates and color
-            1.0,  1.0,  -10.0,     1.0,  1.0,  1.0,  // v0 White
-            -1.0,  1.0,  -10.0,     1.0,  0.0,  1.0,  // v1 Magenta
-            -1.0, -1.0,  -10.0,     1.0,  0.0,  0.0,  // v2 Red
-            1.0, -1.0,  -10.0,     1.0,  1.0,  0.0,  // v3 Yellow
-            1.0, -1.0, -20.0,     0.0,  1.0,  0.0,  // v4 Green
-            1.0,  1.0, -20.0,     0.0,  1.0,  1.0,  // v5 Cyan
-            -1.0,  1.0, -20.0,     0.0,  0.0,  1.0,  // v6 Blue
-            -1.0, -1.0, -20.0,     0.0,  0.0,  0.0   // v7 Black
-        ])
-
+        /**
+         * 每个顶点出现3次，因为一个顶点与3个面有关，出现3次就可以为相接的3个面绘制不同的颜色
+         */
+        const vertices = new Float32Array([   // Vertex coordinates
+            1.0, 1.0, 1.0,  -1.0, 1.0, 1.0,  -1.0,-1.0, 1.0,   1.0,-1.0, 1.0,  // v0-v1-v2-v3 front
+            1.0, 1.0, 1.0,   1.0,-1.0, 1.0,   1.0,-1.0,-1.0,   1.0, 1.0,-1.0,  // v0-v3-v4-v5 right
+            1.0, 1.0, 1.0,   1.0, 1.0,-1.0,  -1.0, 1.0,-1.0,  -1.0, 1.0, 1.0,  // v0-v5-v6-v1 up
+           -1.0, 1.0, 1.0,  -1.0, 1.0,-1.0,  -1.0,-1.0,-1.0,  -1.0,-1.0, 1.0,  // v1-v6-v7-v2 left
+           -1.0,-1.0,-1.0,   1.0,-1.0,-1.0,   1.0,-1.0, 1.0,  -1.0,-1.0, 1.0,  // v7-v4-v3-v2 down
+            1.0,-1.0,-1.0,  -1.0,-1.0,-1.0,  -1.0, 1.0,-1.0,   1.0, 1.0,-1.0   // v4-v7-v6-v5 back
+        ]);
+       
+        const colors = new Float32Array([     // Colors
+           0.4, 0.4, 1.0,  0.4, 0.4, 1.0,  0.4, 0.4, 1.0,  0.4, 0.4, 1.0,  // v0-v1-v2-v3 front(blue)
+           0.4, 1.0, 0.4,  0.4, 1.0, 0.4,  0.4, 1.0, 0.4,  0.4, 1.0, 0.4,  // v0-v3-v4-v5 right(green)
+           1.0, 0.4, 0.4,  1.0, 0.4, 0.4,  1.0, 0.4, 0.4,  1.0, 0.4, 0.4,  // v0-v5-v6-v1 up(red)
+           1.0, 1.0, 0.4,  1.0, 1.0, 0.4,  1.0, 1.0, 0.4,  1.0, 1.0, 0.4,  // v1-v6-v7-v2 left
+           1.0, 1.0, 1.0,  1.0, 1.0, 1.0,  1.0, 1.0, 1.0,  1.0, 1.0, 1.0,  // v7-v4-v3-v2 down
+           0.4, 1.0, 1.0,  0.4, 1.0, 1.0,  0.4, 1.0, 1.0,  0.4, 1.0, 1.0   // v4-v7-v6-v5 back
+        ]);
         // Indices of the vertices
         // Create a cube
         //    v6----- v5
@@ -90,24 +98,21 @@ export default class extends React.Component {
           *  后调用 gl.drawElements(gl.TRIANGLES, gl.n, gl.UNSIGNED_BYTE, 0)
          **/
 
-        let indices = new Uint8Array([
+        const indices = new Uint8Array([       // Indices of the vertices
             0, 1, 2,   0, 2, 3,    // front
-            0, 3, 4,   0, 4, 5,    // right
-            0, 5, 6,   0, 6, 1,    // up
-            1, 6, 7,   1, 7, 2,    // left
-            7, 4, 3,   7, 3, 2,    // down
-            4, 7, 6,   4, 6, 5     // back
+            4, 5, 6,   4, 6, 7,    // right
+            8, 9,10,   8,10,11,    // up
+            12,13,14,  12,14,15,    // left
+            16,17,18,  16,18,19,    // down
+            20,21,22,  20,22,23     // back
         ]);
-
-
-        const FSIZE = verticesColors.BYTES_PER_ELEMENT // TypedArray.BYTES_PER_ELEMENT 属性代表了强类型数组中每个元素所占用的字节数。
-        const STEP = FSIZE*6
         gl.n = indices.length
 
         let vertixBuffer = gl.createBuffer() // 缓冲区对象
+        let colorBuffer = gl.createBuffer() // 缓冲区对象
         let indexBuffer = gl.createBuffer()
 
-        if (!vertixBuffer || !indexBuffer) {
+        if (!vertixBuffer || !indexBuffer || !colorBuffer) {
             console.warn('缓冲区对象创建失败')
             return -1
         }
@@ -118,13 +123,13 @@ export default class extends React.Component {
             console.log('Failed to get the storage location of a_position')
         }
         gl.bindBuffer(gl.ARRAY_BUFFER, vertixBuffer) // 将给定的WebGLBuffer绑定到目标。ARRAY_BUFFER，ELEMENT_ARRAY_BUFFER，UNIFORM_BUFFER。。
-        gl.bufferData(gl.ARRAY_BUFFER, verticesColors, gl.STATIC_DRAW) // 创建并初始化了Buffer对象的数据存储区。
-        
-
-        
-        gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, STEP, 0) // 绑定buffer到vertex attribute
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW) // 创建并初始化了Buffer对象的数据存储区。
+        gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, 0, 0) // 绑定buffer到vertex attribute
         gl.enableVertexAttribArray(a_Position) // 激活每一个属性以便使用，不被激活的属性是不会被使用的。一旦激活，以下其他方法就可以获取到属性的值了，包括vertexAttribPointer()，vertexAttrib*()，和 getVertexAttrib()。
-        gl.vertexAttribPointer(a_Color, 3, gl.FLOAT, false, STEP, FSIZE*3) // 绑定buffer到vertex attribute
+        
+        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer)
+        gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW)
+        gl.vertexAttribPointer(a_Color, 3, gl.FLOAT, false, 0, 0) // 绑定buffer到vertex attribute
         gl.enableVertexAttribArray(a_Color)
 
         // Write the indices to the buffer object
@@ -145,7 +150,7 @@ export default class extends React.Component {
         let modelMatrix = new cuon.Matrix4() // 模型矩阵，同一组顶点多次便宜，叠加绘制
         let mvpMatrix = new cuon.Matrix4() // 模型视图投影矩阵 = 投影矩阵 x 视图矩阵 x 模型矩阵
         
-        viewMatrix.setLookAt(2, 1.5, 8, 0, 0, 0, 0, 1, 0);
+        viewMatrix.setLookAt(3, 3, 7, 0, 0, 0, 0, 1, 0);
         mvpMatrix.set(projMatrix).multiply(viewMatrix).multiply(modelMatrix)
 
 
@@ -243,7 +248,7 @@ export default class extends React.Component {
     }
     render() {
         return (
-            <div id="5-6" className="webgl contaner">
+            <div id="5-7" className="webgl contaner">
                 <h3 className="title">{this.state.title}</h3>
                 <h4>绘制立方体</h4>
                 <p>fov:{this.state.perspective.fov}</p>
