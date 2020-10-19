@@ -742,5 +742,6 @@ var Vector4 = function(opt_src) {
 
 module.exports = {
   Matrix4,
-  Vector4
+  Vector4,
+  Vector3
 }
