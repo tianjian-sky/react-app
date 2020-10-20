@@ -5,7 +5,7 @@ export default class extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            title: '6-1 平行光漫反射',
+            title: '6-2 平行光 + 环境光漫反射',
             gl: null,
             points: [],
             perspective: {
@@ -30,13 +30,15 @@ export default class extends React.Component {
             uniform mat4 u_MvpMatrix;
             uniform vec3 u_LightColor;
             uniform vec3 u_LightDirection;
+            uniform vec3 u_AmbientLight;
             varying vec4 v_Color;
             void main(){
                 gl_Position = u_MvpMatrix * a_Position;
                 vec3 normal = normalize(vec3(a_Normal)); // 对法向量进行归一化
                 float nDotL = max(dot(u_LightDirection, normal), 0.0); // 计算光线方向和法向量的点积  a.b = |a||b|cosA =
                 vec3 diffuse = u_LightColor * vec3(a_Color) * nDotL; // 平行光反射颜色 = 入射光颜色 * 基底颜色 * cosA
-                v_Color = vec4(diffuse, a_Color.a);
+                vec3 ambient = u_AmbientLight * a_Color.rgb; // 环境光反射颜色 = 入射光颜色 * 基底颜色
+                v_Color = vec4(diffuse + ambient, a_Color.a);
             }
         `
 
@@ -185,6 +187,7 @@ export default class extends React.Component {
         let u_MvpMatrix = gl.getUniformLocation(gl.program, 'u_MvpMatrix')
         let u_LightColor = gl.getUniformLocation(gl.program, 'u_LightColor')
         let u_LightDirection = gl.getUniformLocation(gl.program, 'u_LightDirection')
+        let u_AmbientLight = gl.getUniformLocation(gl.program, 'u_AmbientLight')
         if (u_MvpMatrix < 0) {
             console.log('Failed to get the storage location of a_position')
         }
@@ -193,6 +196,8 @@ export default class extends React.Component {
 
         gl.uniform3f(u_LightColor, 1,1,1)
         gl.uniform3fv(u_LightDirection, lightDirection.elements)
+
+        gl.uniform3f(u_AmbientLight, 0.2, 0.2, 0.2)
 
         gl.clearColor(0,0.222,.333,1)
         gl.clear(gl.COLOR_BUFFER_BIT)
@@ -281,7 +286,7 @@ export default class extends React.Component {
     }
     render() {
         return (
-            <div id="6-1" className="webgl contaner">
+            <div id="6-2" className="webgl contaner">
                 <h3 className="title">{this.state.title}</h3>
                 <h4>绘制立方体</h4>
                 <p>fov:{this.state.perspective.fov}</p>

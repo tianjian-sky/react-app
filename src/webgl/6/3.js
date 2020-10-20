@@ -5,7 +5,7 @@ export default class extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            title: '6-1 平行光漫反射',
+            title: '6-3 逆转置矩阵求变换后的法向量',
             gl: null,
             points: [],
             perspective: {
@@ -13,6 +13,9 @@ export default class extends React.Component {
                 gFar: 100,
                 fov: 30,
                 perspective: 1
+            },
+            translation: {
+                rotate: 0,
             },
             depthTestEnable: true
         }
@@ -28,15 +31,20 @@ export default class extends React.Component {
             attribute vec4 a_Color;
             attribute vec4 a_Normal;
             uniform mat4 u_MvpMatrix;
+            uniform mat4 u_NormalMatrix;
             uniform vec3 u_LightColor;
             uniform vec3 u_LightDirection;
+            uniform vec3 u_AmbientLight;
             varying vec4 v_Color;
             void main(){
                 gl_Position = u_MvpMatrix * a_Position;
-                vec3 normal = normalize(vec3(a_Normal)); // 对法向量进行归一化
+
+                // 变换后的法向量 = 模型矩阵的逆转置矩阵 x 原法向量
+                vec3 normal = normalize(vec3(u_NormalMatrix * a_Normal));
                 float nDotL = max(dot(u_LightDirection, normal), 0.0); // 计算光线方向和法向量的点积  a.b = |a||b|cosA =
                 vec3 diffuse = u_LightColor * vec3(a_Color) * nDotL; // 平行光反射颜色 = 入射光颜色 * 基底颜色 * cosA
-                v_Color = vec4(diffuse, a_Color.a);
+                vec3 ambient = u_AmbientLight * a_Color.rgb; // 环境光反射颜色 = 入射光颜色 * 基底颜色
+                v_Color = vec4(diffuse + ambient, a_Color.a);
             }
         `
 
@@ -175,24 +183,39 @@ export default class extends React.Component {
         let viewMatrix = new cuon.Matrix4() // 视图矩阵 改变视线
         let modelMatrix = new cuon.Matrix4() // 模型矩阵，同一组顶点多次便宜，叠加绘制
         let mvpMatrix = new cuon.Matrix4() // 模型视图投影矩阵 = 投影矩阵 x 视图矩阵 x 模型矩阵
+
+        let normalMaytrix = new cuon.Matrix4() // 模型矩阵的逆转置矩阵 x 原法向量 = 变换后的法向量
+
         let lightDirection = new cuon.Vector3([.5, 3, 4])
         lightDirection.normalize()
+
+        modelMatrix.setTranslate(0, 0, 0)
+        modelMatrix.rotate(this.state.translation.rotate, 0, 0 , 1)
         
         viewMatrix.setLookAt(3, 3, 7, 0, 0, 0, 0, 1, 0);
         mvpMatrix.set(projMatrix).multiply(viewMatrix).multiply(modelMatrix)
+
+        normalMaytrix.setInverseOf(modelMatrix)
+        normalMaytrix.transpose()
 
 
         let u_MvpMatrix = gl.getUniformLocation(gl.program, 'u_MvpMatrix')
         let u_LightColor = gl.getUniformLocation(gl.program, 'u_LightColor')
         let u_LightDirection = gl.getUniformLocation(gl.program, 'u_LightDirection')
+        let u_AmbientLight = gl.getUniformLocation(gl.program, 'u_AmbientLight')
+        let u_NormalMatrix = gl.getUniformLocation(gl.program, 'u_NormalMatrix')
+
+
         if (u_MvpMatrix < 0) {
             console.log('Failed to get the storage location of a_position')
         }
         gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrix.elements);
-
+        gl.uniformMatrix4fv(u_NormalMatrix, false, normalMaytrix.elements);
 
         gl.uniform3f(u_LightColor, 1,1,1)
         gl.uniform3fv(u_LightDirection, lightDirection.elements)
+
+        gl.uniform3f(u_AmbientLight, 0.2, 0.2, 0.2)
 
         gl.clearColor(0,0.222,.333,1)
         gl.clear(gl.COLOR_BUFFER_BIT)
@@ -211,47 +234,47 @@ export default class extends React.Component {
         e.preventDefault()
         if (e.keyCode == 39) { // right
             this.setState({
-                perspective: Object.assign(this.state.perspective, {
-                    perspective: this.state.perspective.perspective + 0.1
+                translation: Object.assign(this.state.translation, {
+                    rotate: this.state.translation.rotate + 1
                 })
             })
         }
         if (e.keyCode == 37) { // left
             this.setState({
-                perspective: Object.assign(this.state.perspective, {
-                    perspective: this.state.perspective.perspective - 0.1
+                translation: Object.assign(this.state.translation, {
+                    rotate: this.state.translation.rotate - 1
                 })
             })
         }
-        if (e.keyCode == 38) { // up
-            this.setState({
-                perspective: Object.assign(this.state.perspective, {
-                    fov: this.state.perspective.fov + 1
-                })
-            })
-        }
-        if (e.keyCode == 40) { // down
-            this.setState({
-                perspective: Object.assign(this.state.perspective, {
-                    fov: this.state.perspective.fov - 1
-                })
-            })
-        }
+        // if (e.keyCode == 38) { // up
+        //     this.setState({
+        //         translation: Object.assign(this.state.translation, {
+        //             rotateY: this.state.translation.rotateY + 1
+        //         })
+        //     })
+        // }
+        // if (e.keyCode == 40) { // down
+        //     this.setState({
+        //         translation: Object.assign(this.state.translation, {
+        //             rotateY: this.state.translation.rotateY - 1
+        //         })
+        //     })
+        // }
 
-        if (e.keyCode == 83) { // D
-            this.setState({
-                perspective: Object.assign(this.state.perspective, {
-                    gNear: this.state.perspective.gNear + 1
-                })
-            })
-        }
-        if (e.keyCode == 87) { // W
-            this.setState({
-                perspective: Object.assign(this.state.perspective, {
-                    gFar: this.state.perspective.gFar - 1
-                })
-            })
-        }
+        // if (e.keyCode == 87) { // w
+        //     this.setState({
+        //         translation: Object.assign(this.state.translation, {
+        //             rotateZ: this.state.translation.rotateZ + 1
+        //         })
+        //     })
+        // }
+        // if (e.keyCode == 83) { // d
+        //     this.setState({
+        //         translation: Object.assign(this.state.translation, {
+        //             rotateZ: this.state.translation.rotateZ - 1
+        //         })
+        //     })
+        // }
         this.rePaint(this.state.gl)
     }
     componentDidMount() {
@@ -281,13 +304,9 @@ export default class extends React.Component {
     }
     render() {
         return (
-            <div id="6-1" className="webgl contaner">
+            <div id="6-3" className="webgl contaner">
                 <h3 className="title">{this.state.title}</h3>
-                <h4>绘制立方体</h4>
-                <p>fov:{this.state.perspective.fov}</p>
-                <p>Perspective:{this.state.perspective.perspective}</p>
-                <p>Near:{this.state.perspective.gNear}</p>
-                <p>Far:{this.state.perspective.gFar}</p>
+                <p>Rotate:{this.state.translation.rotate}</p>
                 <canvas className="webgl" width="400" height="400" ref="canvas"></canvas>
             </div>
         );
