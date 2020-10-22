@@ -8,6 +8,7 @@ import Webgl3 from './webgl/3'
 import Webgl4 from './webgl/4'
 import Webgl5 from './webgl/5'
 import Webgl6 from './webgl/6'
+import Webgl7 from './webgl/7'
 import './App.css';
 import {Route, Switch} from 'react-router-dom' 
 
@@ -20,6 +21,7 @@ const routeConfig = [
   { path: '/webgl/4', component: Webgl4 },
   { path: '/webgl/5', component: Webgl5 },
   { path: '/webgl/6', component: Webgl6 },
+  { path: '/webgl/7', component: Webgl7 },
 ]
 
 function App() {
