@@ -237,61 +237,40 @@ export default class extends React.Component {
     }
     listenKeyDown (e) {
         e.preventDefault()
-        if (e.keyCode == 68) { // d
-            this.setState({
-                translation: Object.assign(this.state.translation, {
-                    rotate: this.state.translation.rotate + 1
+        switch (e.keyCode) {
+            case 38: // Up arrow key -> the positive rotation of joint1 around the z-axis
+                if (this.state.translation.rotateJoint < 135) {
+                    this.setState({
+                        translation: Object.assign(this.state.translation, {
+                            rotateJoint: this.state.translation.rotateJoint + 3
+                        })
+                    })
+                }
+                break;
+            case 40: // Down arrow key -> the negative rotation of joint1 around the z-axis
+                if (this.state.translation.rotateJoint > -135) {
+                    this.setState({
+                        translation: Object.assign(this.state.translation, {
+                            rotateJoint: this.state.translation.rotateJoint - 3
+                        })
+                    })
+                }
+                break;
+            case 39: // Right arrow key -> the positive rotation of arm1 around the y-axis
+                this.setState({
+                    translation: Object.assign(this.state.translation, {
+                        rotateArm: this.state.translation.rotateArm + 3 % 360
+                    })
                 })
-            })
-        }
-        if (e.keyCode == 65) { // a
-            this.setState({
-                translation: Object.assign(this.state.translation, {
-                    rotate: this.state.translation.rotate - 1
+                break;
+            case 37: // Left arrow key -> the negative rotation of arm1 around the y-axis
+                this.setState({
+                    translation: Object.assign(this.state.translation, {
+                        rotateArm: this.state.translation.rotateArm - 3 % 360
+                    })
                 })
-            })
-        }
-        if (e.keyCode == 39) { // right
-            this.setState({
-                lightPosition: Object.assign(this.state.lightPosition, {
-                    x: this.state.lightPosition.x + .1
-                })
-            })
-        }
-        if (e.keyCode == 37) { // left
-            this.setState({
-                lightPosition: Object.assign(this.state.lightPosition, {
-                    x: this.state.lightPosition.x - .1
-                })
-            })
-        }
-        if (e.keyCode == 38) { // up
-            this.setState({
-                lightPosition: Object.assign(this.state.lightPosition, {
-                    y: this.state.lightPosition.y + .1
-                })
-            })
-        }
-        if (e.keyCode == 40) { // down
-            this.setState({
-                lightPosition: Object.assign(this.state.lightPosition, {
-                    y: this.state.lightPosition.y - .1
-                })
-            })
-        }
-        if (e.keyCode == 83) { // s
-            this.setState({
-                lightPosition: Object.assign(this.state.lightPosition, {
-                    z: this.state.lightPosition.z + .1
-                })
-            })
-        }
-        if (e.keyCode == 87) { // w
-            this.setState({
-                lightPosition: Object.assign(this.state.lightPosition, {
-                    z: this.state.lightPosition.z - .1
-                })
-            })
+                break;
+            default: return; // Skip drawing at no effective action
         }
         this.rePaint(this.state.gl)
     }
