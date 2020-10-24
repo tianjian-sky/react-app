@@ -1,4 +1,5 @@
-import React from 'react';
+import React from 'react'
+import produce from "immer"
 import cuon from '../../lib/cuon-matrix'
 
 export default class extends React.Component {
@@ -22,6 +23,8 @@ export default class extends React.Component {
             translation: {
                 rotateArm: -90,
                 rotateJoint: 0,
+                rotateJoint2: 0,
+                rotateJoint3: 0,
                 armLength: 10
             },
             depthTestEnable: true,
@@ -173,7 +176,10 @@ export default class extends React.Component {
     }
     rePaint (gl) {
         
-        
+        this.setState({
+            modelMatrixStack: []
+        })
+        console.warn(55, this.state)
         /**
          * 远，近边界必须都大于0
          * 近大远小
@@ -209,7 +215,6 @@ export default class extends React.Component {
             gl.disable(gl.DEPTH_TEST)
         }
         
-
         // Draw a base
         const baseHeight = 2.0;
         modelMatrix.setTranslate(0.0, -12.0, 0.0);
@@ -221,38 +226,64 @@ export default class extends React.Component {
         // Arm1
         const arm1Length = 10.0;
         modelMatrix.translate(0.0, baseHeight, 0.0);     // Move onto the base
+        modelMatrix.rotate(this.state.translation.rotateArm, 0.0, 1.0, 0.0);  // Rotate around the y-axis
         this.saveModelMatrix(modelMatrix)
         modelMatrix.scale(3, arm1Length, 3);
-        modelMatrix.rotate(this.state.translation.rotateArm, 0.0, 1.0, 0.0);  // Rotate around the y-axis
         this.drawBox(gl, viewMatrix, projMatrix, modelMatrix, mvpMatrix, normalMaytrix)
         modelMatrix = this.popModelMatrix()
+
         // Arm2
         const arm2Length = 10.0;
         modelMatrix.translate(0.0, arm1Length, 0.0);       // Move to joint1
-        this.saveModelMatrix(modelMatrix)
         modelMatrix.rotate(this.state.translation.rotateJoint, 0.0, 0.0, 1.0);  // Rotate around the z-axis
+        this.saveModelMatrix(modelMatrix)
         modelMatrix.scale(4, arm2Length, 4);
+        this.drawBox(gl, viewMatrix, projMatrix, modelMatrix, mvpMatrix, normalMaytrix)
+        modelMatrix = this.popModelMatrix()
+
+        // A palm
+        const palmLength = 2.0;
+        modelMatrix.translate(0.0, arm2Length, 0.0);       // Move to palm
+        modelMatrix.rotate(this.state.translation.rotateJoint2, 0.0, 1.0, 0.0);  // Rotate around the y-axis
+        this.saveModelMatrix(modelMatrix)
+        modelMatrix.scale(2, palmLength, 6);
+        this.drawBox(gl, viewMatrix, projMatrix, modelMatrix, mvpMatrix, normalMaytrix)
+        modelMatrix = this.popModelMatrix()
+
+        // Move to the center of the tip of the palm
+        modelMatrix.translate(0.0, palmLength, 0.0);
+        
+        // Draw finger1
+        this.saveModelMatrix(modelMatrix)
+        modelMatrix.translate(0.0, 0.0, 2.0);
+        modelMatrix.rotate(this.state.translation.rotateJoint3, 1.0, 0.0, 0.0);  // Rotate around the x-axis
+        this.saveModelMatrix(modelMatrix)
+        modelMatrix.scale(1, 2, 1);
+        this.drawBox(gl, viewMatrix, projMatrix, modelMatrix, mvpMatrix, normalMaytrix)
+        modelMatrix = this.popModelMatrix()
+        modelMatrix = this.popModelMatrix()
+
+        // Draw finger2
+        this.saveModelMatrix(modelMatrix)
+        modelMatrix.translate(0.0, 0.0, -2.0);
+        modelMatrix.rotate(-1 * this.state.translation.rotateJoint3, 1.0, 0.0, 0.0);  // Rotate around the x-axis
+        this.saveModelMatrix(modelMatrix)
+        modelMatrix.scale(1, 2, 1)
         this.drawBox(gl, viewMatrix, projMatrix, modelMatrix, mvpMatrix, normalMaytrix)
         modelMatrix = this.popModelMatrix()
     }
     saveModelMatrix (m) {
         let m2 = new cuon.Matrix4(m)
-        this.setState({
-            modelMatrixStack: this.state.modelMatrixStack.push(m2)
-        })
+        this.state.modelMatrixStack.push(m2)
     }
     popModelMatrix () {
         let out =  this.state.modelMatrixStack.pop()
-        this.setState({
-            modelMatrixStack: this.state.modelMatrixStack
-        })
         return out
     }
     drawBox (gl, viewMatrix, projMatrix, modelMatrix, mvpMatrix, normalMaytrix) {
         let u_ModelMatrix = gl.getUniformLocation(gl.program, 'u_ModelMatrix')
         let u_MvpMatrix = gl.getUniformLocation(gl.program, 'u_MvpMatrix')
         let u_NormalMatrix = gl.getUniformLocation(gl.program, 'u_NormalMatrix')
-
 
         mvpMatrix.set(projMatrix).multiply(viewMatrix).multiply(modelMatrix)
         normalMaytrix.setInverseOf(modelMatrix)
@@ -267,37 +298,69 @@ export default class extends React.Component {
     listenKeyDown (e) {
         e.preventDefault()
         switch (e.keyCode) {
-            case 38: // Up arrow key -> the positive rotation of joint1 around the z-axis
+            case 40: // Up arrow key -> the positive rotation of joint1 around the z-axis
                 if (this.state.translation.rotateJoint < 135) {
                     this.setState({
-                        translation: Object.assign(this.state.translation, {
-                            rotateJoint: this.state.translation.rotateJoint + 3
+                        translation: produce(this.state.translation, draft => {
+                            draft.rotateJoint += 2
                         })
                     })
                 }
                 break;
-            case 40: // Down arrow key -> the negative rotation of joint1 around the z-axis
+            case 38: // Down arrow key -> the negative rotation of joint1 around the z-axis
                 if (this.state.translation.rotateJoint > -135) {
                     this.setState({
-                        translation: Object.assign(this.state.translation, {
-                            rotateJoint: this.state.translation.rotateJoint - 3
+                        translation: produce(this.state.translation, draft => {
+                            draft.rotateJoint -= 2
                         })
                     })
                 }
                 break;
             case 39: // Right arrow key -> the positive rotation of arm1 around the y-axis
                 this.setState({
-                    translation: Object.assign(this.state.translation, {
-                        rotateArm: this.state.translation.rotateArm + 3 % 360
+                    translation: produce(this.state.translation, draft => {
+                        draft.rotateArm = (draft.rotateArm + 1) % 360
                     })
                 })
                 break;
             case 37: // Left arrow key -> the negative rotation of arm1 around the y-axis
                 this.setState({
-                    translation: Object.assign(this.state.translation, {
-                        rotateArm: this.state.translation.rotateArm - 3 % 360
+                    translation: produce(this.state.translation, draft => {
+                        draft.rotateArm = (draft.rotateArm - 1) % 360
                     })
                 })
+                break;
+            case 90: // 'ｚ'key -> the positive rotation of joint2
+                this.setState({
+                    translation: produce(this.state.translation, draft => {
+                        draft.rotateJoint2 = (draft.rotateJoint2 + 1) % 360
+                    })
+                })
+                break; 
+            case 88: // 'x'key -> the negative rotation of joint2
+                this.setState({
+                    translation: produce(this.state.translation, draft => {
+                        draft.rotateJoint2 = (draft.rotateJoint2 - 1) % 360
+                    })
+                })
+                break;
+            case 86: // 'v'key -> the positive rotation of joint3
+                if (this.state.translation.rotateJoint3 < 60.0) {
+                    this.setState({
+                        translation: produce(this.state.translation, draft => {
+                            draft.rotateJoint3 = (draft.rotateJoint3 + 1) % 360
+                        })
+                    })
+                }
+                break;
+            case 67: // 'c'key -> the nagative rotation of joint3
+                if (this.state.translation.rotateJoint3 > -60.0) {
+                    this.setState({
+                        translation: produce(this.state.translation, draft => {
+                            draft.rotateJoint3 = (draft.rotateJoint3 - 1) % 360
+                        })
+                    })
+                }
                 break;
             default: return; // Skip drawing at no effective action
         }
