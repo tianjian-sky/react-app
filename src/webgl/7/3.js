@@ -23,7 +23,8 @@ export default class extends React.Component {
             translation: {
                 rotateX: 0,
                 rotateY: 0,
-                rotateZ: 0
+                rotateZ: 0,
+                faceClicked: 0,
             },
             depthTestEnable: true,
             modelMatrixStack: []
@@ -39,10 +40,12 @@ export default class extends React.Component {
             attribute vec4 a_Position;
             attribute vec4 a_Color;
             attribute vec4 a_Normal;
+            attribute float a_Face; // 表面编号
 
             uniform mat4 u_MvpMatrix;
             uniform mat4 u_ModelMatrix;
             uniform mat4 u_NormalMatrix;
+            uniform int u_PickedFace; // 点击的表面编号
 
             uniform vec3 u_LightColor;
             uniform vec3 u_LightPosition;
@@ -59,10 +62,16 @@ export default class extends React.Component {
                 vec3 lightDirection = normalize(u_LightPosition - vec3(vetexPosition));
                 
                 float nDotL = max(dot(lightDirection, normal), 0.0); // 计算光线方向和法向量的点积  a.b = |a||b|cosA =
-                
-                vec3 diffuse = u_LightColor * vec3(a_Color) * nDotL; // 平行光反射颜色 = 入射光颜色 * 基底颜色 * cosA
-                vec3 ambient = u_AmbientLight * a_Color.rgb; // 环境光反射颜色 = 入射光颜色 * 基底颜色
-                v_Color = vec4(diffuse + ambient, a_Color.a);
+                int face = int(a_Face);
+                vec4 color = (face == u_PickedFace) ? vec4(1, 1, 0, 0) : a_Color;
+                //vec4 color = vec4(1.0, a_Face, 0.0, 1.0);
+                vec3 diffuse = u_LightColor * vec3(color) * nDotL; // 平行光反射颜色 = 入射光颜色 * 基底颜色 * cosA
+                vec3 ambient = u_AmbientLight * color.rgb; // 环境光反射颜色 = 入射光颜色 * 基底颜色
+                if(u_PickedFace == 0) {
+                    v_Color = vec4(color.rgb, a_Face/255.0);
+                } else {
+                    v_Color = vec4(diffuse + ambient, color.a);
+                }
             }
         `
 
@@ -120,11 +129,12 @@ export default class extends React.Component {
             5, 5, 5, 5,     // v7-v4-v3-v2 down
             6, 6, 6, 6,     // v4-v7-v6-v5 back
         ]);
+
         
         const indices = new Uint8Array([   // Indices of the vertices
-             0, 1, 2,   0, 2, 3,    // front
-             4, 5, 6,   4, 6, 7,    // right
-             8, 9,10,   8,10,11,    // up
+            0, 1, 2,   0, 2, 3,    // front
+            4, 5, 6,   4, 6, 7,    // right
+            8, 9,10,   8,10,11,    // up
             12,13,14,  12,14,15,    // left
             16,17,18,  16,18,19,    // down
             20,21,22,  20,22,23     // back
@@ -147,8 +157,9 @@ export default class extends React.Component {
         let vertixBuffer = gl.createBuffer() // 缓冲区对象
         let indexBuffer = gl.createBuffer()
         let normalBuffer = gl.createBuffer()
+        let faceBuffer = gl.createBuffer()
 
-        if (!vertixBuffer || !indexBuffer || !normalBuffer) {
+        if (!vertixBuffer || !indexBuffer || !normalBuffer || !faceBuffer) {
             console.warn('缓冲区对象创建失败')
             return -1
         }
@@ -156,17 +167,30 @@ export default class extends React.Component {
         let a_Position = gl.getAttribLocation(program, 'a_Position')
         let a_Color = gl.getAttribLocation(program, 'a_Color')
         let a_Normal = gl.getAttribLocation(program, 'a_Normal')
-        if (a_Position < 0 || a_Color < 0 || a_Normal < 0) {
+        let a_Face = gl.getAttribLocation(program, 'a_Face')
+
+       
+
+        if (a_Position < 0 || a_Color < 0 || a_Normal < 0 || a_Face < 0) {
             console.log('Failed to get the storage location of a_position')
         }
+
+        const FSIZE = faceBuffer.BYTES_PER_ELEMENT;
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, faceBuffer)
+        gl.bufferData(gl.ARRAY_BUFFER, faces, gl.STATIC_DRAW)
+        gl.vertexAttribPointer(a_Face, 1, gl.UNSIGNED_BYTE, false, 0, 0) // 绑定buffer到vertex attribute
+        gl.enableVertexAttribArray(a_Face)
+
+
         gl.bindBuffer(gl.ARRAY_BUFFER, vertixBuffer) // 将给定的WebGLBuffer绑定到目标。ARRAY_BUFFER，ELEMENT_ARRAY_BUFFER，UNIFORM_BUFFER。。
         gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW) // 创建并初始化了Buffer对象的数据存储区。
-        gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, 0, 0) // 绑定buffer到vertex attribute
+        gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, FSIZE * 3, 0) // 绑定buffer到vertex attribute
         gl.enableVertexAttribArray(a_Position) // 激活每一个属性以便使用，不被激活的属性是不会被使用的。一旦激活，以下其他方法就可以获取到属性的值了，包括vertexAttribPointer()，vertexAttrib*()，和 getVertexAttrib()。
 
         gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer)
         gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW)
-        gl.vertexAttribPointer(a_Normal, 3, gl.FLOAT, false, 0, 0) // 绑定buffer到vertex attribute
+        gl.vertexAttribPointer(a_Normal, 3, gl.FLOAT, false, FSIZE * 3, 0) // 绑定buffer到vertex attribute
         gl.enableVertexAttribArray(a_Normal)
 
         // Write the indices to the buffer object
@@ -197,8 +221,11 @@ export default class extends React.Component {
         let u_LightColor = gl.getUniformLocation(gl.program, 'u_LightColor')
         let u_LightPosition = gl.getUniformLocation(gl.program, 'u_LightPosition')
         let u_AmbientLight = gl.getUniformLocation(gl.program, 'u_AmbientLight')
+        let u_PickedFace = gl.getUniformLocation(gl.program, 'u_PickedFace')
+        
 
         gl.vertexAttrib4f(a_Color, 1, 0, 1, 1)
+        gl.uniform1i(u_PickedFace, this.state.translation.faceClicked);
         gl.uniform3f(u_LightColor, 1,1,1)
         gl.uniform3f(u_LightPosition, this.state.lightPosition.x, this.state.lightPosition.y, this.state.lightPosition.z)
         gl.uniform3f(u_AmbientLight, 0.2, 0.2, 0.2)
@@ -282,6 +309,46 @@ export default class extends React.Component {
             this.rePaint(this.state.gl)
         }, 0)
     }
+    clickHandler(e) {
+        
+        let x = e.clientX
+        let y = e.clientY
+        this.setState({
+            translation: produce(this.state.translation, draft => {
+                draft.faceClicked = 0
+            })
+        })
+        
+        setTimeout(() => {
+            this.getClickFace(x, y)
+        }, 0)
+    }
+    getClickFace (x, y) {
+        const gl = this.state.gl
+        const el = this.refs.canvas
+        const geo = el.getBoundingClientRect()
+        const u_PickedFace = gl.getUniformLocation(gl.program, 'u_PickedFace');
+
+        x = x - geo.left
+        y = geo.top + geo.height - y // 右手系，y轴正方向朝上
+
+        let pixels = new Uint8Array(4); // Array for storing the pixel value
+        gl.uniform1i(u_PickedFace, this.state.translation.faceClicked);  // Draw by writing surface number into alpha value
+        this.rePaint(gl)
+        gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+        console.warn(123, pixels)
+        let face = 0
+        if (pixels[0] != 0) {
+            this.setState({
+                translation: produce(this.state.translation, draft => {
+                    draft.faceClicked = pixels[3]
+                })
+            })
+        }
+        setTimeout(() => {
+            this.rePaint(gl)
+        }, 0)
+    }
     componentDidMount() {
         this.draw()
         document.body.addEventListener('keydown', this.listenKeyDown.bind(this))
@@ -312,8 +379,9 @@ export default class extends React.Component {
             <div id="7-1" className="webgl contaner">
                 <h3 className="title">{this.state.title}</h3>
                 <p>RotateX:{this.state.translation.rotateX} RotateY:{this.state.translation.rotateY}</p>
+                <p>Face clicked: {this.state.translation.faceClicked}</p>
                 <p>Light position:({this.state.lightPosition.x}, {this.state.lightPosition.y}, {this.state.lightPosition.z})</p>
-                <canvas className="webgl" width="400" height="400" ref="canvas"></canvas>
+                <canvas className="webgl" width="400" height="400" ref="canvas" onClick={this.clickHandler.bind(this)}></canvas>
             </div>
         );
     }
