@@ -6,7 +6,7 @@ export default class extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            title: '7-6 alpha 混合',
+            title: '7-6 alpha 混合（同一深度）',
             gl: null,
             points: [],
             perspective: {
@@ -170,7 +170,7 @@ export default class extends React.Component {
         gl.clearColor(0, 0, 0, 1);
         gl.clear(gl.COLOR_BUFFER_BIT)
 
-        // // 深度检测开启
+        // 深度检测开启
         if (this.state.depthTestEnable) {
             gl.enable(gl.DEPTH_TEST)
             gl.clear(gl.DEPTH_TEST)
@@ -181,6 +181,9 @@ export default class extends React.Component {
         // 开启混合
         if (this.state.blendEnable) {
             gl.enable(gl.BLEND)
+            /**
+             * 为要混合的两种颜色，指定各自的比重
+             */
             gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         } else {
             gl.disable(gl.BLEND)
