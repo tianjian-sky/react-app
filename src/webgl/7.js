@@ -6,6 +6,7 @@ import _7_4 from './7/4'
 import _7_5 from './7/5'
 import _7_6 from './7/6'
 import _7_7 from './7/7'
+import _7_8 from './7/8'
 
 export default class extends React.Component {
     constructor(props) {
@@ -22,6 +23,7 @@ export default class extends React.Component {
                     <_7_5/>
                     <_7_6/>
                     <_7_7/>
+                    <_7_8/>
                 </div>
             </div>
         );

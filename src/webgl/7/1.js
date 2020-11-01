@@ -203,7 +203,7 @@ export default class extends React.Component {
         // // 深度检测开启
         if (this.state.depthTestEnable) {
             gl.enable(gl.DEPTH_TEST)
-            gl.clear(gl.DEPTH_TEST)
+            gl.clear(gl.DEPTH_BUFFER_BIT)
         } else {
             gl.disable(gl.DEPTH_TEST)
         }
