@@ -34,6 +34,10 @@ export default class extends React.Component {
                 y: 3,
                 z: 4
             },
+            canvas: {
+                width: 400,
+                height: 400
+            },
             offScreen: {
                 width: 256,
                 height: 256
@@ -48,10 +52,10 @@ export default class extends React.Component {
                     rotateZ: 0
                 },
                 model2: {
-                    translateX: 20,
+                    translateX: 0,
                     translateY: 0,
-                    translateZ: 0,
-                    rotateX: 0,
+                    translateZ: 1,
+                    rotateX: 20,
                     rotateY: 10,
                     rotateZ: 0
                 }
@@ -97,7 +101,8 @@ export default class extends React.Component {
         'uniform sampler2D u_Sampler;\n' +
         'void main() {\n' +
         // '  gl_FragColor = v_Color;\n' +
-        '  gl_FragColor = texture2D(u_Sampler, v_TexCoord);\n' +
+        // '  gl_FragColor = texture2D(u_Sampler, v_TexCoord);\n' +
+        'gl_FragColor = vec4(1,1,0,1);\n' +
         '}\n';
       
       // Vertex shader for texture drawing
@@ -249,6 +254,7 @@ export default class extends React.Component {
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW)
         indexBuffer.num = 1
         indexBuffer.type = gl.UNSIGNED_BYTE
+        indexBuffer.n = indices.length
         this.state.buffer.indice = indexBuffer
 
         gl.bindBuffer(gl.ARRAY_BUFFER, textBuffer)
@@ -262,23 +268,22 @@ export default class extends React.Component {
          */
         gl.bindBuffer(gl.ARRAY_BUFFER, vertixBufferText)
         gl.bufferData(gl.ARRAY_BUFFER, verticesText, gl.STATIC_DRAW)
-        vertixBuffer.num = 3
-        vertixBuffer.type = gl.FLOAT
+        vertixBufferText.num = 3
+        vertixBufferText.type = gl.FLOAT
         this.state.buffer.vertexText = vertixBufferText
 
         gl.bindBuffer(gl.ARRAY_BUFFER, textBufferText)
         gl.bufferData(gl.ARRAY_BUFFER, texCoordsText, gl.STATIC_DRAW)
-        vertixBuffer.num = 2
-        vertixBuffer.type = gl.FLOAT
+        textBufferText.num = 2
+        textBufferText.type = gl.FLOAT
         this.state.buffer.textText = textBufferText
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBufferText)
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indicesText, gl.STATIC_DRAW)
-        indexBuffer.num = 1
-        indexBuffer.type = gl.UNSIGNED_BYTE
+        indexBufferText.num = 1
+        indexBufferText.type = gl.UNSIGNED_BYTE
+        indexBufferText.n = indicesText.length
         this.state.buffer.indiceText = indexBufferText
-
-        gl.n = indices.length
     }
     initFrameBuffer(gl) {
         /**
@@ -373,13 +378,12 @@ export default class extends React.Component {
         gl.activeTexture(gl.TEXTURE0) // 需要激活的纹理单元。其值是 gl.TEXTUREI ，其中的 I 在 0 到 gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS - 1 范围内。
         gl.bindTexture(gl.TEXTURE_2D, texture) // 将给定的 WebGLTexture 绑定到目标（绑定点）
         
-        let u_Sampler = gl.getUniformLocation(program, 'u_Sampler')
-        gl.uniform1i(u_Sampler, 0)
         gl.texParameterf(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR) // 设置纹理参数 float
         // gl.texParameteri() // 设置纹理参数 int
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
+        return texture
     }
-    draw1(gl, program) {
+    draw1(gl, program, texture, framebuffer) {
         gl.useProgram(program);   // Tell that this program object is used
 
         let a_Position = gl.getAttribLocation(program, 'a_Position')
@@ -395,11 +399,17 @@ export default class extends React.Component {
         let mvpMatrix = new cuon.Matrix4() // 模型视图投影矩阵 = 投影矩阵 x 视图矩阵 x 模型矩阵
         let normalMaytrix = new cuon.Matrix4() // 模型矩阵的逆转置矩阵 x 原法向量 = 变换后的法向量
 
+        var viewProjMatrixFBO = new cuon.Matrix4();   // Prepare view projection matrix for FBO
+        viewProjMatrixFBO.setPerspective(this.state.perspective.fov, this.state.perspective.perspective, this.state.perspective.gNear, this.state.perspective.gFar)
+        viewProjMatrixFBO.lookAt(0.0, 2.0, 7.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
 
-        modelMatrix.setTranslate(this.state.translation.model1.translateX, 0.0, 0.0);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
+        gl.viewport(0, 0, this.state.offScreen.width, this.state.offScreen.height)
+
+        modelMatrix.setTranslate(this.state.translation.model1.translateX, this.state.translation.model1.translateY, this.state.translation.model1.translateZ);
         modelMatrix.rotate(this.state.translation.model1.rotateX, 1.0, 0.0, 0.0);
         modelMatrix.rotate(this.state.translation.model1.rotateY, 0.0, 1.0, 0.0);
-
+        modelMatrix.rotate(this.state.translation.model1.rotateZ, 0.0, 0.0, 1.0);
         projMatrix.setPerspective(this.state.perspective.fov, this.state.perspective.perspective, this.state.perspective.gNear, this.state.perspective.gFar)
         viewMatrix.lookAt(...this.state.eyeAt, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
         mvpMatrix.set(projMatrix).multiply(viewMatrix).multiply(modelMatrix)
@@ -426,7 +436,9 @@ export default class extends React.Component {
         gl.uniformMatrix4fv(u_NormalMatrix, false, normalMaytrix.elements)
         gl.uniform1i(u_Sampler, 0)
 
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.state.buffer.indice)
+       
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
         /**
          * void gl.drawElements(mode, count, type, offset);
          * 
@@ -435,69 +447,55 @@ export default class extends React.Component {
          * type:指定元素数组缓冲区中的值的类型
          * offset:指定元素数组缓冲区中的偏移量
          */
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.state.buffer.indice)
         gl.drawElements(gl.TRIANGLES, gl.n, gl.UNSIGNED_BYTE, 0)
     }
-    draw2(gl, program, img) {
-        gl.useProgram(program)
-        this.initTexture(gl, program, img)
-            // Tell that this program object is used
-
-        let a_Position = gl.getAttribLocation(program, 'a_Position')
-        let a_Normal = gl.getAttribLocation(program, 'a_Normal')
-        let a_TexCoord = gl.getAttribLocation(program, 'a_TexCoord')
+    draw2(gl, program, texture, framebuffer) {
         let u_MvpMatrix = gl.getUniformLocation(program, 'u_MvpMatrix')
-        let u_NormalMatrix = gl.getUniformLocation(program, 'u_NormalMatrix')
+        let a_Position = gl.getAttribLocation(program, 'a_Position')
+        let a_TexCoord = gl.getAttribLocation(program, 'a_TexCoord')
 
         let projMatrix = new cuon.Matrix4() // 投影矩阵 1.根据三角形与视点的距离对三角形进行缩小， 2.对三角形进行平移（近大远小，透视法），3.定义可视空间
         let viewMatrix = new cuon.Matrix4() // 视图矩阵 改变视线
         let modelMatrix = new cuon.Matrix4() // 模型矩阵，同一组顶点多次便宜，叠加绘制
-        let mvpMatrix = new cuon.Matrix4() // 模型视图投影矩阵 = 投影矩阵 x 视图矩阵 x 模型矩阵
-        let normalMaytrix = new cuon.Matrix4() // 模型矩阵的逆转置矩阵 x 原法向量 = 变换后的法向量
-
-
-        modelMatrix.setTranslate(this.state.translation.model2.translateX, 0.0, 0.0);
+        let mvpMatrix = new cuon.Matrix4()
+        
+        modelMatrix.setTranslate(this.state.translation.model2.translateX, this.state.translation.model2.translateY, this.state.translation.model2.translateZ);
         modelMatrix.rotate(this.state.translation.model2.rotateX, 1.0, 0.0, 0.0);
         modelMatrix.rotate(this.state.translation.model2.rotateY, 0.0, 1.0, 0.0);
-
-        projMatrix.setPerspective(this.state.perspective.fov, this.state.perspective.perspective, this.state.perspective.gNear, this.state.perspective.gFar)
+        modelMatrix.rotate(this.state.translation.model2.rotateY, 0.0, 0.0, 1.0);
         viewMatrix.lookAt(...this.state.eyeAt, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
+        projMatrix.setPerspective(this.state.perspective.fov, this.state.perspective.perspective, this.state.perspective.gNear, this.state.perspective.gFar)
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);        // Change the drawing destination to color buffer
+        gl.viewport(0, 0, this.state.canvas.width, this.state.canvas.height);  // Set the size of viewport back to that of <canvas>
+
+
+        // Calculate the model view project matrix and pass it to u_MvpMatrix
         mvpMatrix.set(projMatrix).multiply(viewMatrix).multiply(modelMatrix)
-
-        normalMaytrix.setInverseOf(modelMatrix)
-        normalMaytrix.transpose()
-
+        gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrix.elements);
+        
+        console.warn(this.state.buffer.vertexText.num, this.state.buffer.vertexText.type)
         // 激活变量前 先要绑定buffer
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.state.buffer.vertex)
-        gl.vertexAttribPointer(a_Position, this.state.buffer.vertex.num, this.state.buffer.vertex.type, false, 0, 0)
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.state.buffer.vertexText)
+        gl.vertexAttribPointer(a_Position, this.state.buffer.vertexText.num, this.state.buffer.vertexText.type, false, 0, 0)
         gl.enableVertexAttribArray(a_Position)
+        console.warn(this.state.buffer.textText.num, this.state.buffer.textText.type)
 
-        // 激活变量前 先要绑定buffer
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.state.buffer.normal)
-        gl.vertexAttribPointer(a_Normal, this.state.buffer.normal.num, this.state.buffer.normal.type, false, 0, 0)
-        gl.enableVertexAttribArray(a_Normal)
+         // 激活变量前 先要绑定buffer
+         gl.bindBuffer(gl.ARRAY_BUFFER, this.state.buffer.textText)
+         gl.vertexAttribPointer(a_TexCoord, this.state.buffer.textText.num, this.state.buffer.textText.type, false, 0, 0)
+         gl.enableVertexAttribArray(a_TexCoord)
 
-        // 激活变量前 先要绑定buffer
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.state.buffer.text)
-        gl.vertexAttribPointer(a_TexCoord, this.state.buffer.text.num, this.state.buffer.text.type, false, 0, 0)
-        gl.enableVertexAttribArray(a_TexCoord)
-
-        gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrix.elements)
-        gl.uniformMatrix4fv(u_NormalMatrix, false, normalMaytrix.elements)
-
-
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.state.buffer.indice)
-        /**
-         * void gl.drawElements(mode, count, type, offset);
-         * 
-         * mode: 指定要渲染的图元类型
-         * count:指定要渲染的元素数量.
-         * type:指定元素数组缓冲区中的值的类型
-         * offset:指定元素数组缓冲区中的偏移量
-         */
-        gl.drawElements(gl.TRIANGLES, gl.n, gl.UNSIGNED_BYTE, 0)
+        // Bind the texture object to the target
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        // Draw
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.state.buffer.indiceText);
+        gl.drawElements(gl.TRIANGLES, this.state.buffer.indiceText.n,  this.state.buffer.indiceText.type, 0);
     }
-    resetGl (gl) {
-        gl.clearColor(0.2, 0.2, 0.4, 1.0)
+    resetGl (gl, color = [0.2, 0.2, 0.4, 1.0]) {
+        gl.clearColor(...color)
         gl.clear(gl.COLOR_BUFFER_BIT)
         // 深度检测开启
         if (this.state.depthTestEnable) {
@@ -623,9 +621,8 @@ export default class extends React.Component {
     rePaint (gl, framebuffer) {
         let img = new Image()
         img.onload = () => {
-            this.resetGl(gl)
-            gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
-            
+            let texture = this.initTexture(gl, this.state.glPrograme1,img)
+            this.resetGl(gl, [0.2, 0.2, 0.4, 1.0])
             /**
              * viewport(x, y, width, height)用来设置视口，即指定从标准设备到窗口坐标的x、y仿射变换。
              * x 视口的左下角水平坐标。默认值：0。
@@ -633,9 +630,10 @@ export default class extends React.Component {
              * width 视口的宽度。默认值：canvas的宽度。
              * height 视口的高度。默认值：canvas的高度。
              */
-            gl.viewport(0, 0, this.state.offScreen.width, this.state.offScreen.height)
-            this.draw1(gl, this.state.glPrograme1)
-            // this.draw2(gl, this.state.glPrograme2, img)
+            
+            // this.draw1(gl, this.state.glPrograme1, texture, framebuffer)
+            this.resetGl(gl, [0.0, 0.0, 0.0, 1.0])
+            this.draw2(gl, this.state.glPrograme1, texture, framebuffer)
         }
         img.src = pic
     }
