@@ -394,14 +394,13 @@ export default class extends React.Component {
         let u_Sampler = gl.getUniformLocation(program, 'u_Sampler')
 
         let projMatrix = new cuon.Matrix4() // 投影矩阵 1.根据三角形与视点的距离对三角形进行缩小， 2.对三角形进行平移（近大远小，透视法），3.定义可视空间
-        let viewMatrix = new cuon.Matrix4() // 视图矩阵 改变视线
         let modelMatrix = new cuon.Matrix4() // 模型矩阵，同一组顶点多次便宜，叠加绘制
         let mvpMatrix = new cuon.Matrix4() // 模型视图投影矩阵 = 投影矩阵 x 视图矩阵 x 模型矩阵
         let normalMaytrix = new cuon.Matrix4() // 模型矩阵的逆转置矩阵 x 原法向量 = 变换后的法向量
-
         var viewProjMatrixFBO = new cuon.Matrix4();   // Prepare view projection matrix for FBO
+
         viewProjMatrixFBO.setPerspective(this.state.perspective.fov, this.state.perspective.perspective, this.state.perspective.gNear, this.state.perspective.gFar)
-        viewProjMatrixFBO.lookAt(0.0, 2.0, 7.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
+        viewProjMatrixFBO.lookAt(...this.state.eyeAtText, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
         gl.viewport(0, 0, this.state.offScreen.width, this.state.offScreen.height)
@@ -411,8 +410,7 @@ export default class extends React.Component {
         modelMatrix.rotate(this.state.translation.model1.rotateY, 0.0, 1.0, 0.0);
         modelMatrix.rotate(this.state.translation.model1.rotateZ, 0.0, 0.0, 1.0);
         projMatrix.setPerspective(this.state.perspective.fov, this.state.perspective.perspective, this.state.perspective.gNear, this.state.perspective.gFar)
-        viewMatrix.lookAt(...this.state.eyeAt, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
-        mvpMatrix.set(projMatrix).multiply(viewMatrix).multiply(modelMatrix)
+        mvpMatrix.set(projMatrix).multiply(viewProjMatrixFBO).multiply(modelMatrix)
 
         normalMaytrix.setInverseOf(modelMatrix)
         normalMaytrix.transpose()
@@ -448,7 +446,7 @@ export default class extends React.Component {
          * offset:指定元素数组缓冲区中的偏移量
          */
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.state.buffer.indice)
-        gl.drawElements(gl.TRIANGLES, gl.n, gl.UNSIGNED_BYTE, 0)
+        gl.drawElements(gl.TRIANGLES, this.state.buffer.indice.n, gl.UNSIGNED_BYTE, 0)
     }
     draw2(gl, program, texture, framebuffer) {
         gl.useProgram(program)
@@ -637,6 +635,7 @@ export default class extends React.Component {
             // this.draw1(gl, this.state.glPrograme1, texture, framebuffer)
             this.resetGl(gl, [0.0, 0.0, 0.0, 1.0])
             this.draw2(gl, this.state.glPrograme1, texture, framebuffer)
+            // this.draw2(gl, this.state.glPrograme1, framebuffer.texture, framebuffer)
         }
         img.src = pic
     }
