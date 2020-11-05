@@ -101,8 +101,7 @@ export default class extends React.Component {
         'uniform sampler2D u_Sampler;\n' +
         'void main() {\n' +
         // '  gl_FragColor = v_Color;\n' +
-        // '  gl_FragColor = texture2D(u_Sampler, v_TexCoord);\n' +
-        'gl_FragColor = vec4(1,1,0,1);\n' +
+        '  gl_FragColor = texture2D(u_Sampler, v_TexCoord);\n' +
         '}\n';
       
       // Vertex shader for texture drawing
@@ -184,6 +183,7 @@ export default class extends React.Component {
             1.0, 1.0, 1.0, 0.4,  1.0, 1.0, 1.0, 0.4,  1.0, 1.0, 1.0, 0.4,  1.0, 1.0, 1.0, 0.4,  // v7-v4-v3-v2 down
             0.5, 1.0, 1.0, 0.4,  0.5, 1.0, 1.0, 0.4,  0.5, 1.0, 1.0, 0.4,  0.5, 1.0, 1.0, 0.4   // v4-v7-v6-v5 back
         ]);
+
         const normals = new Float32Array([   // Normal
             0.0, 0.0, 1.0,   0.0, 0.0, 1.0,   0.0, 0.0, 1.0,   0.0, 0.0, 1.0,     // v0-v1-v2-v3 front
             1.0, 0.0, 0.0,   1.0, 0.0, 0.0,   1.0, 0.0, 0.0,   1.0, 0.0, 0.0,     // v0-v3-v4-v5 right
@@ -451,6 +451,9 @@ export default class extends React.Component {
         gl.drawElements(gl.TRIANGLES, gl.n, gl.UNSIGNED_BYTE, 0)
     }
     draw2(gl, program, texture, framebuffer) {
+        gl.useProgram(program)
+
+
         let u_MvpMatrix = gl.getUniformLocation(program, 'u_MvpMatrix')
         let a_Position = gl.getAttribLocation(program, 'a_Position')
         let a_TexCoord = gl.getAttribLocation(program, 'a_TexCoord')
@@ -463,7 +466,7 @@ export default class extends React.Component {
         modelMatrix.setTranslate(this.state.translation.model2.translateX, this.state.translation.model2.translateY, this.state.translation.model2.translateZ);
         modelMatrix.rotate(this.state.translation.model2.rotateX, 1.0, 0.0, 0.0);
         modelMatrix.rotate(this.state.translation.model2.rotateY, 0.0, 1.0, 0.0);
-        modelMatrix.rotate(this.state.translation.model2.rotateY, 0.0, 0.0, 1.0);
+        modelMatrix.rotate(this.state.translation.model2.rotateZ, 0.0, 0.0, 1.0);
         viewMatrix.lookAt(...this.state.eyeAt, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
         projMatrix.setPerspective(this.state.perspective.fov, this.state.perspective.perspective, this.state.perspective.gNear, this.state.perspective.gFar)
 
