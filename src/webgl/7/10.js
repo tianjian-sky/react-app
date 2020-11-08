@@ -3,82 +3,63 @@ import produce from "immer"
 import cuon from '../../lib/cuon-matrix'
 import pic from '../../static/sky_cloud.jpg';
 
-const SOLID_VSHADER_SOURCE =
-'attribute vec4 a_Position;\n' +
-'attribute vec4 a_Normal;\n' +
-'attribute vec2 a_TexCoord;\n' +
-'uniform mat4 u_MvpMatrix;\n' +
-'uniform mat4 u_NormalMatrix;\n' +
-'varying vec4 v_Color;\n' +
-'varying vec2 v_TexCoord;\n' +
-'void main() {\n' +
-'  vec3 lightDirection = vec3(0.0, 0.0, 1.0);\n' + // Light direction(World coordinate)
-　'  vec4 color = vec4(0.0, 1.0, 1.0, 1.0);\n' +     // Face color
-　'  gl_Position = u_MvpMatrix * a_Position;\n' +
-'  vec3 normal = normalize(vec3(u_NormalMatrix * a_Normal));\n' +
-'  float nDotL = max(dot(normal, lightDirection), 0.0);\n' +
-// '  v_Color = vec4(color.rgb * nDotL, color.a);\n' +
-'  v_TexCoord = a_TexCoord;\n' +
-'}\n';
-const SOLID_FSHADER_SOURCE =
-'#ifdef GL_ES\n' +
-'precision mediump float;\n' +
-'#endif\n' +
-'varying vec4 v_Color;\n' +
-'varying vec2 v_TexCoord;\n' +
-'uniform sampler2D u_Sampler;\n' +
-'void main() {\n' +
-// '  gl_FragColor = v_Color;\n' +
-'  gl_FragColor = texture2D(u_Sampler, v_TexCoord);\n' +
-'}\n';
+// Vertex shader program for generating a shadow map
+var SHADOW_VSHADER_SOURCE =
+  'attribute vec4 a_Position;\n' +
+  'uniform mat4 u_MvpMatrix;\n' +
+  'void main() {\n' +
+  '  gl_Position = u_MvpMatrix * a_Position;\n' +
+  '}\n';
 
-// Vertex shader for texture drawing
-const TEXTURE_VSHADER_SOURCE =
-'attribute vec4 a_Position;\n' +
-'attribute vec4 a_Normal;\n' +
-'attribute vec2 a_TexCoord;\n' +
-'uniform mat4 u_MvpMatrix;\n' +
-'uniform mat4 u_NormalMatrix;\n' +
-'varying float v_NdotL;\n' +
-'varying vec2 v_TexCoord;\n' +
-'void main() {\n' +
-'  vec3 lightDirection = vec3(0.0, 0.0, 1.0);\n' + // Light direction(World coordinate)
-'  gl_Position = u_MvpMatrix * a_Position;\n' +
-'  vec3 normal = normalize(vec3(u_NormalMatrix * a_Normal));\n' +
-'  v_NdotL = max(dot(normal, lightDirection), 0.0);\n' +
-'  v_TexCoord = a_TexCoord;\n' +
-'}\n';
-      
-    // Fragment shader for texture drawing
-    const TEXTURE_FSHADER_SOURCE =
-    '#ifdef GL_ES\n' +
-    'precision mediump float;\n' +
-    '#endif\n' +
-    'uniform sampler2D u_Sampler;\n' +
-    'varying vec2 v_TexCoord;\n' + // 绘制形状为gl.TRANGLES, 每个面计算分别计算纹理坐标
-    'varying float v_NdotL;\n' +
-    'void main() {\n' +
-    '  vec4 color = texture2D(u_Sampler, v_TexCoord);\n' +
-    '  gl_FragColor = vec4(color.rgb * v_NdotL, color.a);\n' +
-    '}\n';
+// Fragment shader program for generating a shadow map
+var SHADOW_FSHADER_SOURCE =
+  '#ifdef GL_ES\n' +
+  'precision mediump float;\n' +
+  '#endif\n' +
+  'void main() {\n' +
+  '  gl_FragColor = vec4(gl_FragCoord.z, 0.0, 0.0, 0.0);\n' + // Write the z-value in R
+  '}\n';
+
+// Vertex shader program for regular drawing
+var VSHADER_SOURCE =
+  'attribute vec4 a_Position;\n' +
+  'attribute vec4 a_Color;\n' +
+  'uniform mat4 u_MvpMatrix;\n' +
+  'uniform mat4 u_MvpMatrixFromLight;\n' +
+  'varying vec4 v_PositionFromLight;\n' +
+  'varying vec4 v_Color;\n' +
+  'void main() {\n' +
+  '  gl_Position = u_MvpMatrix * a_Position;\n' + 
+  '  v_PositionFromLight = u_MvpMatrixFromLight * a_Position;\n' +
+  '  v_Color = a_Color;\n' +
+  '}\n';
+
+// Fragment shader program for regular drawing
+var FSHADER_SOURCE =
+  '#ifdef GL_ES\n' +
+  'precision mediump float;\n' +
+  '#endif\n' +
+  'uniform sampler2D u_ShadowMap;\n' +
+  'varying vec4 v_PositionFromLight;\n' +
+  'varying vec4 v_Color;\n' +
+  'void main() {\n' +
+  '  vec3 shadowCoord = (v_PositionFromLight.xyz/v_PositionFromLight.w)/2.0 + 0.5;\n' +
+  '  vec4 rgbaDepth = texture2D(u_ShadowMap, shadowCoord.xy);\n' +
+  '  float depth = rgbaDepth.r;\n' + // Retrieve the z-value from R
+  '  float visibility = (shadowCoord.z > depth + 0.005) ? 0.7 : 1.0;\n' +
+  '  gl_FragColor = vec4(v_Color.rgb * visibility, v_Color.a);\n' +
+  '}\n';
 
 export default class extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            title: '7-9 渲染到纹理',
+            title: '7-10 阴影 shadow',
             gl1: null,
-            gl2: null,
-            gl3: null,
             glPrograme1: null,
             glPrograme2: null,
-            glPrograme3: null,
             fb1: null,
-            fb2: null,
-            fb3: null,
             bf1: null,
-            bf2: null,
-            bf3: null,
             points: [],
             perspective: {
                 gNear: 1,
@@ -104,7 +85,7 @@ export default class extends React.Component {
             viewport: {
                 1: [0, 0, 400, 400],
                 2: [0, 0, 400, 400],
-                3: [0, 0, 100, 100]
+                3: [0, 0, 400, 100]
             },
             translation: {
                 model1: {
@@ -137,21 +118,32 @@ export default class extends React.Component {
     }
     initWebglPrograme (canvas) {
         let gl = canvas.getContext('webgl')
-        const programe = gl.createProgram();
-        const vshader1 = this.loadShader(gl, gl.VERTEX_SHADER, SOLID_VSHADER_SOURCE)
-        const fshader1 = this.loadShader(gl, gl.FRAGMENT_SHADER, SOLID_FSHADER_SOURCE)
+        const programe1 = gl.createProgram();
+        const programe2 = gl.createProgram();
+        const vshader1 = this.loadShader(gl, gl.VERTEX_SHADER, SHADOW_VSHADER_SOURCE)
+        const fshader1 = this.loadShader(gl, gl.FRAGMENT_SHADER, SHADOW_FSHADER_SOURCE)
+
+        const vshader2 = this.loadShader(gl, gl.VERTEX_SHADER, VSHADER_SOURCE)
+        const fshader2 = this.loadShader(gl, gl.FRAGMENT_SHADER, FSHADER_SOURCE)
 
         // 一个 WebGLProgram 对象由两个编译过后的 WebGLShader 组成 - 顶点着色器和片段着色器（均由 GLSL 语言所写）。这些组合成一个可用的 WebGL 着色器程序。
-        gl.attachShader(programe, vshader1);
-        gl.attachShader(programe, fshader1);
+        gl.attachShader(programe1, vshader1);
+        gl.attachShader(programe1, fshader1);
+        gl.attachShader(programe2, vshader2);
+        gl.attachShader(programe2, fshader2);
 
-        gl.linkProgram(programe);
+        gl.linkProgram(programe1);
+        gl.linkProgram(programe2)
 
-        if (!gl.getProgramParameter(programe, gl.LINK_STATUS)) {
-            const info = gl.getProgramInfoLog(programe);
+        if (!gl.getProgramParameter(programe1, gl.LINK_STATUS)) {
+            const info = gl.getProgramInfoLog(programe1);
             throw "Could not compile WebGL program. \n\n" + info;
         }
-        return [gl, programe]
+        if (!gl.getProgramParameter(programe2, gl.LINK_STATUS)) {
+            const info = gl.getProgramInfoLog(programe2);
+            throw "Could not compile WebGL program. \n\n" + info;
+        }
+        return [gl, programe1, programe2]
     }
     initBuffers (gl) {
         // 设置顶点
@@ -164,60 +156,37 @@ export default class extends React.Component {
             indiceText: null,
             textText: null
         }
-        const vertices = new Float32Array([   // Vertex coordinates
-            1.0, 1.0, 1.0,  -1.0, 1.0, 1.0,  -1.0,-1.0, 1.0,   1.0,-1.0, 1.0,    // v0-v1-v2-v3 front
-            1.0, 1.0, 1.0,   1.0,-1.0, 1.0,   1.0,-1.0,-1.0,   1.0, 1.0,-1.0,    // v0-v3-v4-v5 right
-            1.0, 1.0, 1.0,   1.0, 1.0,-1.0,  -1.0, 1.0,-1.0,  -1.0, 1.0, 1.0,    // v0-v5-v6-v1 up
-           -1.0, 1.0, 1.0,  -1.0, 1.0,-1.0,  -1.0,-1.0,-1.0,  -1.0,-1.0, 1.0,    // v1-v6-v7-v2 left
-           -1.0,-1.0,-1.0,   1.0,-1.0,-1.0,   1.0,-1.0, 1.0,  -1.0,-1.0, 1.0,    // v7-v4-v3-v2 down
-            1.0,-1.0,-1.0,  -1.0,-1.0,-1.0,  -1.0, 1.0,-1.0,   1.0, 1.0,-1.0     // v4-v7-v6-v5 back
-        ]);
-       
-        const colors = new Float32Array([   // Colors
-            0.5, 0.5, 1.0, 0.4,  0.5, 0.5, 1.0, 0.4,  0.5, 0.5, 1.0, 0.4,  0.5, 0.5, 1.0, 0.4,  // v0-v1-v2-v3 front(blue)
-            0.5, 1.0, 0.5, 0.4,  0.5, 1.0, 0.5, 0.4,  0.5, 1.0, 0.5, 0.4,  0.5, 1.0, 0.5, 0.4,  // v0-v3-v4-v5 right(green)
-            1.0, 0.5, 0.5, 0.4,  1.0, 0.5, 0.5, 0.4,  1.0, 0.5, 0.5, 0.4,  1.0, 0.5, 0.5, 0.4,  // v0-v5-v6-v1 up(red)
-            1.0, 1.0, 0.5, 0.4,  1.0, 1.0, 0.5, 0.4,  1.0, 1.0, 0.5, 0.4,  1.0, 1.0, 0.5, 0.4,  // v1-v6-v7-v2 left
-            1.0, 1.0, 1.0, 0.4,  1.0, 1.0, 1.0, 0.4,  1.0, 1.0, 1.0, 0.4,  1.0, 1.0, 1.0, 0.4,  // v7-v4-v3-v2 down
-            0.5, 1.0, 1.0, 0.4,  0.5, 1.0, 1.0, 0.4,  0.5, 1.0, 1.0, 0.4,  0.5, 1.0, 1.0, 0.4   // v4-v7-v6-v5 back
-        ]);
 
-        const normals = new Float32Array([   // Normal
-            0.0, 0.0, 1.0,   0.0, 0.0, 1.0,   0.0, 0.0, 1.0,   0.0, 0.0, 1.0,     // v0-v1-v2-v3 front
-            1.0, 0.0, 0.0,   1.0, 0.0, 0.0,   1.0, 0.0, 0.0,   1.0, 0.0, 0.0,     // v0-v3-v4-v5 right
-            0.0, 1.0, 0.0,   0.0, 1.0, 0.0,   0.0, 1.0, 0.0,   0.0, 1.0, 0.0,     // v0-v5-v6-v1 up
-           -1.0, 0.0, 0.0,  -1.0, 0.0, 0.0,  -1.0, 0.0, 0.0,  -1.0, 0.0, 0.0,     // v1-v6-v7-v2 left
-            0.0,-1.0, 0.0,   0.0,-1.0, 0.0,   0.0,-1.0, 0.0,   0.0,-1.0, 0.0,     // v7-v4-v3-v2 down
-            0.0, 0.0,-1.0,   0.0, 0.0,-1.0,   0.0, 0.0,-1.0,   0.0, 0.0,-1.0      // v4-v7-v6-v5 back
-        ]);
-       
-        const texCoords = new Float32Array([   // Texture coordinates
-            1.0, 1.0,   0.0, 1.0,   0.0, 0.0,   1.0, 0.0,    // v0-v1-v2-v3 front
-            0.0, 1.0,   0.0, 0.0,   1.0, 0.0,   1.0, 1.0,    // v0-v3-v4-v5 right
-            1.0, 0.0,   1.0, 1.0,   0.0, 1.0,   0.0, 0.0,    // v0-v5-v6-v1 up
-            1.0, 1.0,   0.0, 1.0,   0.0, 0.0,   1.0, 0.0,    // v1-v6-v7-v2 left
-            0.0, 0.0,   1.0, 0.0,   1.0, 1.0,   0.0, 1.0,    // v7-v4-v3-v2 down
-            0.0, 0.0,   1.0, 0.0,   1.0, 1.0,   0.0, 1.0     // v4-v7-v6-v5 back
-        ]);
 
-        const indices = new Uint8Array([   // Indices of the vertices
-            0, 1, 2,   0, 2, 3,    // front
-            4, 5, 6,   4, 6, 7,    // right
-            8, 9,10,   8,10,11,    // up
-            12,13,14,  12,14,15,    // left
-            16,17,18,  16,18,19,    // down
-            20,21,22,  20,22,23     // back
-        ]);
+        // Create a triangle
+        //       v2
+        //      / | 
+        //     /  |
+        //    /   |
+        //  v0----v1
+        const vertices = new Float32Array([-0.8, 3.5, 0.0,  0.8, 3.5, 0.0,  0.0, 3.5, 1.8]);
+        const colors = new Float32Array([1.0, 0.5, 0.0,  1.0, 0.5, 0.0,  1.0, 0.0, 0.0]);    
+        // const normals = new Float32Array([]);
+        const indices = new Uint8Array([0, 1, 2]);
 
         /**
-         * 纹理相关
+         * 平面相关
          */
 
-        const verticesText = new Float32Array([
-            1.0, 1.0, 0.0,  -1.0, 1.0, 0.0,  -1.0,-1.0, 0.0,   1.0,-1.0, 0.0    // v0-v1-v2-v3
-        ])
-        const texCoordsText = new Float32Array([1.0, 1.0,   0.0, 1.0,   0.0, 0.0,   1.0, 0.0]);
-        const indicesText = new Uint8Array([0, 1, 2,   0, 2, 3]);
+        // Create a plane
+        //  v1------v0
+        //  |        | 
+        //  |        |
+        //  |        |
+        //  v2------v3
+
+        const verticesPlane = new Float32Array([
+            3.0, -1.7, 2.5,  -3.0, -1.7, 2.5,  -3.0, -1.7, -2.5,   3.0, -1.7, -2.5    // v0-v1-v2-v3
+        ]);
+        const colorsPlane = new Float32Array([
+            1.0, 1.0, 1.0,    1.0, 1.0, 1.0,  1.0, 1.0, 1.0,   1.0, 1.0, 1.0
+        ]);
+        const indicesPlane = new Uint8Array([0, 1, 2,   0, 2, 3]);
     
         let vertixBuffer = gl.createBuffer() // 缓冲区对象
         let indexBuffer = gl.createBuffer()
@@ -225,12 +194,12 @@ export default class extends React.Component {
         let textBuffer = gl.createBuffer()
         let colorBuffer = gl.createBuffer()
 
-        let vertixBufferText = gl.createBuffer() // 缓冲区对象
-        let indexBufferText = gl.createBuffer()
-        let textBufferText = gl.createBuffer()
+        let vertixBufferPlane = gl.createBuffer() // 缓冲区对象
+        let indexBufferPlane = gl.createBuffer()
+        let colorsBufferPlane = gl.createBuffer()
         
 
-        if (!vertixBuffer || !indexBuffer || !normalBuffer || !textBuffer || !colorBuffer  || !vertixBufferText || !indexBufferText || !textBufferText) {
+        if (!vertixBuffer || !indexBuffer || !normalBuffer || !textBuffer || !colorBuffer  || !vertixBufferPlane || !indexBufferPlane || !colorsBufferPlane) {
             console.warn('缓冲区对象创建失败')
             return -1
         }
@@ -242,11 +211,11 @@ export default class extends React.Component {
         vertixBuffer.type = gl.FLOAT
         buffer.vertex = vertixBuffer
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer)
-        gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW)
-        normalBuffer.num = 3
-        normalBuffer.type = gl.FLOAT
-        buffer.normal = normalBuffer
+        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer)
+        gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW)
+        colorBuffer.num = 3
+        colorBuffer.type = gl.FLOAT
+        buffer.color = colorBuffer
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW)
@@ -255,33 +224,27 @@ export default class extends React.Component {
         indexBuffer.n = indices.length
         buffer.indice = indexBuffer
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, textBuffer)
-        gl.bufferData(gl.ARRAY_BUFFER, texCoords, gl.STATIC_DRAW)
-        textBuffer.num = 2
-        textBuffer.type = gl.FLOAT
-        buffer.text = textBuffer
-
         /**
-         * 纹理相关
+         * 平面相关
          */
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertixBufferText)
-        gl.bufferData(gl.ARRAY_BUFFER, verticesText, gl.STATIC_DRAW)
-        vertixBufferText.num = 3
-        vertixBufferText.type = gl.FLOAT
-        buffer.vertexText = vertixBufferText
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertixBufferPlane)
+        gl.bufferData(gl.ARRAY_BUFFER, verticesPlane, gl.STATIC_DRAW)
+        vertixBuffer.num = 3
+        vertixBuffer.type = gl.FLOAT
+        buffer.vertexPlane = vertixBufferPlane
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, textBufferText)
-        gl.bufferData(gl.ARRAY_BUFFER, texCoordsText, gl.STATIC_DRAW)
-        textBufferText.num = 2
-        textBufferText.type = gl.FLOAT
-        buffer.textText = textBufferText
+        gl.bindBuffer(gl.ARRAY_BUFFER, colorsBufferPlane)
+        gl.bufferData(gl.ARRAY_BUFFER, colorsPlane, gl.STATIC_DRAW)
+        colorsBufferPlane.num = 3
+        colorsBufferPlane.type = gl.FLOAT
+        buffer.colorPlane = colorsBufferPlane
 
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBufferText)
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indicesText, gl.STATIC_DRAW)
-        indexBufferText.num = 1
-        indexBufferText.type = gl.UNSIGNED_BYTE
-        indexBufferText.n = indicesText.length
-        buffer.indiceText = indexBufferText
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBufferPlane)
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indicesPlane, gl.STATIC_DRAW)
+        indexBufferPlane.num = 1
+        indexBufferPlane.type = gl.UNSIGNED_BYTE
+        indexBufferPlane.n = indicesPlane.length
+        buffer.indicePlane = indexBufferPlane
         return buffer
     }
     initFrameBuffer(gl) {
@@ -648,55 +611,12 @@ export default class extends React.Component {
             this.rePaint(this.state.gl)
         }, 0)
     }
-    rePaint1 (gl, programe, framebuffer, buffer) {
+    rePaint1 (gl, p1, p2, framebuffer, buffer) {
         let img = new Image()
         img.onload = () => {
-            let texture = this.initTexture(gl, programe,img)
-            this.resetGl(gl, [0.0, 0.0, 0.0, 1.0])
-            /**
-             * viewport(x, y, width, height)用来设置视口，即指定从标准设备到窗口坐标的x、y仿射变换。
-             * x 视口的左下角水平坐标。默认值：0。
-             * y 视口的左下角垂直坐标。默认值：0。
-             * width 视口的宽度。默认值：canvas的宽度。
-             * height 视口的高度。默认值：canvas的高度。
-             * 
-             * When you first create a WebGL context, the size of the viewport will match the size of the canvas.
-             * However, if you resize the canvas, you will need to tell the WebGL context a new viewport setting. 
-             * In this situation, you can use gl.viewport.
-             */
-            gl.viewport(...this.state.viewport[1])
-            this.draw1(gl, programe, texture, framebuffer, buffer)
-        }
-        img.src = pic
-    }
-    rePaint2 (gl, programe, framebuffer, buffer) {
-        let img = new Image()
-        img.onload = () => {
-            let texture = this.initTexture(gl, programe,img)
-            this.resetGl(gl, [0.0, 0.0, 0.0, 1.0])
-
-            /**
-             * viewport(x, y, width, height)用来设置视口，即指定从标准设备到窗口坐标的x、y仿射变换。
-             * x 视口的左下角水平坐标。默认值：0。
-             * y 视口的左下角垂直坐标。默认值：0。
-             * width 视口的宽度。默认值：canvas的宽度。
-             * height 视口的高度。默认值：canvas的高度。
-             * 
-             * When you first create a WebGL context, the size of the viewport will match the size of the canvas.
-             * However, if you resize the canvas, you will need to tell the WebGL context a new viewport setting. 
-             * In this situation, you can use gl.viewport.
-             */
-            gl.viewport(...this.state.viewport[2])
-            this.draw2(gl, programe, texture, framebuffer, buffer)
-        }
-        img.src = pic
-    }
-    rePaint3 (gl, programe, framebuffer, buffer) {
-        let img = new Image()
-        img.onload = () => {
-            let texture = this.initTexture(gl, programe,img)
+            // let texture = this.initTexture(gl, p1,img)
             
-            gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
+            // gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
 
             console.warn('CURRENT VIEWPORT:', gl.getParameter(gl.VIEWPORT))
             
@@ -714,40 +634,23 @@ export default class extends React.Component {
              * However, if you resize the canvas, you will need to tell the WebGL context a new viewport setting. 
              * In this situation, you can use gl.viewport.
              */
-            gl.viewport(...this.state.viewport[3])
+            gl.viewport(...this.state.viewport[1])
             this.resetGl(gl, [0.2, 0.2, 0.4, 1.0])
-            this.draw1(gl, programe, texture, framebuffer, buffer)
-            gl.bindFramebuffer(gl.FRAMEBUFFER, null);        // Change the drawing destination to color buffer
-            gl.viewport(0, 0, this.state.canvas.width, this.state.canvas.height);  // Set the size of viewport back to that of <canvas>
-            this.resetGl(gl, [0.0, 0.0, 0.0, 1.0])
-            this.draw2(gl, programe, framebuffer.texture, framebuffer, buffer)
+            this.draw2(gl, p2, texture, framebuffer, buffer)
         }
         img.src = pic
     }
-    rePaint() {
-        this.rePaint1(this.state.gl1, this.state.glPrograme1, this.state.fb1, this.state.bf1)
-        this.rePaint2(this.state.gl2, this.state.glPrograme2, this.state.fb2, this.state.bf2)
-        this.rePaint3(this.state.gl3, this.state.glPrograme3, this.state.fb3, this.state.bf3)
+    rePaint(gl, p1, p2, fb, bf) {
+        this.rePaint1(this.state.gl1, p1, p2, fb, bf)
     }
     componentDidMount() {
-        const [gl1, programe1] = this.initWebglPrograme(this.refs.canvas1)
-        const [gl2, programe2] = this.initWebglPrograme(this.refs.canvas2)
-        const [gl3, programe3] = this.initWebglPrograme(this.refs.canvas3)
+        const [gl1, p1, p2] = this.initWebglPrograme(this.refs.canvas1)
         const buffers1 = this.state.bf1 = this.initBuffers(gl1)
-        const buffers2 = this.state.bf2 = this.initBuffers(gl2)
-        const buffers3 = this.state.bf3 = this.initBuffers(gl3)
         const framebuffer1 = this.state.fb1 = this.initFrameBuffer(gl1)
-        const framebuffer2 = this.state.fb2 = this.initFrameBuffer(gl2)
-        const framebuffer3 = this.state.fb3 = this.initFrameBuffer(gl3)
         this.state.gl1 = gl1
-        this.state.gl2 = gl2
-        this.state.gl3 = gl3
-        this.state.glPrograme1 = programe1
-        this.state.glPrograme2 = programe2
-        this.state.glPrograme3 = programe3
-        this.rePaint1(gl1, programe1, framebuffer1, buffers1)
-        this.rePaint2(gl2, programe2, framebuffer2, buffers2)
-        this.rePaint3(gl3, programe3, framebuffer3, buffers3)
+        this.state.glPrograme1 = p1
+        this.state.glPrograme2 = p2
+        this.rePaint(gl1, p1, p2, framebuffer1, buffers1)
         // document.body.addEventListener('keydown', this.listenKeyDown.bind(this))
     }
     loadShader (gl, type, source) {
