@@ -438,8 +438,6 @@ export default class extends React.Component {
 
         viewMatrix.lookAt(...this.state.eyeAtFBO, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
 
-        
-
         modelMatrix.setTranslate(this.state.translation.model1.translateX, this.state.translation.model1.translateY, this.state.translation.model1.translateZ);
         modelMatrix.rotate(this.state.translation.model1.rotateX, 1.0, 0.0, 0.0);
         modelMatrix.rotate(this.state.translation.model1.rotateY, 0.0, 1.0, 0.0);
