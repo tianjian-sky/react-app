@@ -43,12 +43,11 @@ var FSHADER_SOURCE =
   'varying vec4 v_PositionFromLight;\n' +
   'varying vec4 v_Color;\n' +
   'void main() {\n' +
-//   '  vec3 shadowCoord = (v_PositionFromLight.xyz/v_PositionFromLight.w)/2.0 + 0.5;\n' +
-//   '  vec4 rgbaDepth = texture2D(u_ShadowMap, shadowCoord.xy);\n' +
-//   '  float depth = rgbaDepth.r;\n' + // Retrieve the z-value from R
-//   '  float visibility = (shadowCoord.z > depth + 0.005) ? 0.7 : 1.0;\n' +
-//   '  gl_FragColor = vec4(v_Color.rgb * visibility, v_Color.a);\n' +
-    'gl_FragColor = v_Color;\n' +
+  '  vec3 shadowCoord = (v_PositionFromLight.xyz/v_PositionFromLight.w)/2.0 + 0.5;\n' +
+  '  vec4 rgbaDepth = texture2D(u_ShadowMap, shadowCoord.xy);\n' +
+  '  float depth = rgbaDepth.r;\n' + // Retrieve the z-value from R
+  '  float visibility = (shadowCoord.z > depth + 0.005) ? 0.7 : 1.0;\n' +
+  '  gl_FragColor = vec4(v_Color.rgb * visibility, v_Color.a);\n' +
   '}\n';
 
 export default class extends React.Component {
@@ -367,7 +366,7 @@ export default class extends React.Component {
             console.log('Frame buffer object is incomplete: ' + e.toString());
             return false
         }
-
+        
         // Unbind the buffer object
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         gl.bindTexture(gl.TEXTURE_2D, null);
@@ -390,13 +389,14 @@ export default class extends React.Component {
         gl.useProgram(program)
         let a_Position = gl.getAttribLocation(program, 'a_Position')
         let u_MvpMatrixFromLight
-        let u_MvpMatrix
+        let u_MvpMatrix = gl.getUniformLocation(program, 'u_MvpMatrix')
         let a_Color
+        let u_Sampler
         if (!frameBufferMode) {
             u_MvpMatrixFromLight = gl.getUniformLocation(program, 'u_MvpMatrixFromLight')
             a_Color = gl.getAttribLocation(program, 'a_Color')
         } else {
-            u_MvpMatrix = gl.getUniformLocation(program, 'u_MvpMatrix')
+            u_Sampler = gl.getUniformLocation(program, 'u_ShadowMap')
         }
         
         let projMatrix = new cuon.Matrix4() // 投影矩阵 1.根据三角形与视点的距离对三角形进行缩小， 2.对三角形进行平移（近大远小，透视法），3.定义可视空间
@@ -430,6 +430,7 @@ export default class extends React.Component {
             gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrix.elements)
         } else {
             gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrixLight.elements)
+            gl.uniform1i(u_Sampler, 0)
         }
         
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer.vertexPlane)
@@ -443,13 +444,14 @@ export default class extends React.Component {
         gl.useProgram(program)
         let a_Position = gl.getAttribLocation(program, 'a_Position')
         let u_MvpMatrixFromLight
-        let u_MvpMatrix
+        let u_MvpMatrix = gl.getUniformLocation(program, 'u_MvpMatrix')
         let a_Color
+        let u_Sampler
         if (!frameBufferMode) {
             u_MvpMatrixFromLight = gl.getUniformLocation(program, 'u_MvpMatrixFromLight')
             a_Color = gl.getAttribLocation(program, 'a_Color')
         } else {
-            u_MvpMatrix = gl.getUniformLocation(program, 'u_MvpMatrix')
+            u_Sampler = gl.getUniformLocation(program, 'u_ShadowMap')
         }
         
 
@@ -473,7 +475,6 @@ export default class extends React.Component {
         projMatrix.setPerspective(this.state.perspective.fov, this.state.perspective.perspective, this.state.perspective.gNear, this.state.perspective.gFar)
         viewMatrix.lookAt(...this.state.eyeAt, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
         mvpMatrix.set(projMatrix).multiply(viewMatrix).multiply(modelMatrix)
-
         if (!frameBufferMode) {
             gl.uniformMatrix4fv(u_MvpMatrixFromLight, false, mvpMatrixLight.elements);
             gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrix.elements)
@@ -620,20 +621,21 @@ export default class extends React.Component {
     rePaint1 (gl, p1, p2, framebuffer, buffer) {
         let img = new Image()
         img.onload = () => {
-            let texture = this.initTexture(gl, p1,img)
-            // gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
-            // this.resetGl(gl, [0, 0, 0, 1.0])
-            // gl.viewport(0, 0, this.state.offScreen.width, this.state.offScreen.height)
+            gl.activeTexture(gl.TEXTURE0); // Set a texture object to the texture unit
+            gl.bindTexture(gl.TEXTURE_2D, framebuffer.texture);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
+            this.resetGl(gl, [0, 0, 0, 1.0])
+            gl.viewport(0, 0, this.state.offScreen.width, this.state.offScreen.height)
             /**
              * 把内容绘制在framebuffer中，再把他们当作是texture绘制
              */
-            // this.drawTriangle(gl, p1, texture, framebuffer, buffer, true)
-            // this.drawPlane(gl, p1, texture, framebuffer, buffer, true)
+            this.drawTriangle(gl, p1, null, framebuffer, buffer, true)
+            this.drawPlane(gl, p1, null, framebuffer, buffer, true)
             this.resetGl(gl, [0, 0, 0, 1.0])
             gl.bindFramebuffer(gl.FRAMEBUFFER, null)
             gl.viewport(...this.state.viewport[1])
-            this.drawTriangle(gl, p2, texture, framebuffer, buffer)
-            this.drawPlane(gl, p2, texture, framebuffer, buffer)
+            this.drawTriangle(gl, p2, null, framebuffer, buffer)
+            this.drawPlane(gl, p2, null, framebuffer, buffer)
         }
         img.src = pic
     }
