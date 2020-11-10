@@ -427,6 +427,7 @@ export default class extends React.Component {
             gl.vertexAttribPointer(a_Color, buffer.colorPlane.num, buffer.colorPlane.type, false, 0, 0)
             gl.enableVertexAttribArray(a_Color)
             gl.uniformMatrix4fv(u_MvpMatrixFromLight, false, mvpMatrixLight.elements)
+            gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrix.elements)
         } else {
             gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrixLight.elements)
         }
@@ -475,6 +476,7 @@ export default class extends React.Component {
 
         if (!frameBufferMode) {
             gl.uniformMatrix4fv(u_MvpMatrixFromLight, false, mvpMatrixLight.elements);
+            gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrix.elements)
             // 激活变量前 先要绑定buffer
             gl.bindBuffer(gl.ARRAY_BUFFER, buffer.color)
             gl.vertexAttribPointer(a_Color, buffer.color.num, buffer.color.type, false, 0, 0)
@@ -628,8 +630,8 @@ export default class extends React.Component {
             // this.drawTriangle(gl, p1, texture, framebuffer, buffer, true)
             // this.drawPlane(gl, p1, texture, framebuffer, buffer, true)
             this.resetGl(gl, [0, 0, 0, 1.0])
-            // gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-            // gl.viewport(...this.state.viewport[1])
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+            gl.viewport(...this.state.viewport[1])
             this.drawTriangle(gl, p2, texture, framebuffer, buffer)
             this.drawPlane(gl, p2, texture, framebuffer, buffer)
         }
@@ -685,7 +687,6 @@ export default class extends React.Component {
                     <button  onClick={() => this.enableBlend(true)}>开启</button><button  onClick={() => this.enableBlend(false)}>关闭</button>
                 </p>
                 <p>renderbuffer depth buffer:{this.state.renderBufferDepthBufferEnable ? '开启' : '关闭'}</p>
-                <p><img src={pic}/></p>
                 <p>
                     viewport1: {JSON.stringify(this.state.viewport[1])}<br/>
                     viewport2: {JSON.stringify(this.state.viewport[2])}<br/>
