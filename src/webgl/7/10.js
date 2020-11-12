@@ -1,7 +1,6 @@
 import React from 'react'
 import produce from "immer"
 import cuon from '../../lib/cuon-matrix'
-import pic from '../../static/sky_cloud.jpg';
 
 // Vertex shader program for generating a shadow map
 var SHADOW_VSHADER_SOURCE =
@@ -43,10 +42,10 @@ var FSHADER_SOURCE =
   'varying vec4 v_PositionFromLight;\n' +
   'varying vec4 v_Color;\n' +
   'void main() {\n' +
-  '  vec3 shadowCoord = (v_PositionFromLight.xyz/v_PositionFromLight.w)/2.0 + 0.5;\n' +
+  '  vec3 shadowCoord = (v_PositionFromLight.xyz/v_PositionFromLight.w)/2.0 + 0.5;\n' + // 顶点坐标[-1,1] -> 纹理坐标[0,1]
   '  vec4 rgbaDepth = texture2D(u_ShadowMap, shadowCoord.xy);\n' +
   '  float depth = rgbaDepth.r;\n' + // Retrieve the z-value from R
-  '  float visibility = (shadowCoord.z > depth + 0.005) ? 0.7 : 1.0;\n' +
+  '  float visibility = (shadowCoord.z > depth + 0.005) ? 0.7 : 1.0;\n' + // +0.005 防止马赫带
   '  gl_FragColor = vec4(v_Color.rgb * visibility, v_Color.a);\n' +
   '}\n';
 
@@ -86,8 +85,6 @@ export default class extends React.Component {
             },
             viewport: {
                 1: [0, 0, 400, 400],
-                2: [0, 0, 400, 400],
-                3: [0, 0, 400, 100]
             },
             translation: {
                 model1: {
@@ -113,7 +110,7 @@ export default class extends React.Component {
             },
             depthTestEnable: true,
             depthBufferLocked: false,
-            blendEnable: true,
+            blendEnable: false, // 绘制阴影，混合需要关闭！
             renderBufferDepthBufferEnable: true,
             modelMatrixStack: []
         }
@@ -267,6 +264,7 @@ export default class extends React.Component {
          * 帧缓冲在创建时也有自带的一些必要相关对象，但是我们无法对其修改参数，所以需要创建自己帧缓冲相关对象。
          * 
          * A framebuffer object (FBO) is a collection of color, depth, and stencil textures or render targets. 
+         * 
          * Various 2D images can be attached to the color attachment point in the framebuffer object. 
          * These include： 
          * a) a renderbuffer object that stores color values, 
@@ -395,7 +393,6 @@ export default class extends React.Component {
         if (!frameBufferMode) {
             u_MvpMatrixFromLight = gl.getUniformLocation(program, 'u_MvpMatrixFromLight')
             a_Color = gl.getAttribLocation(program, 'a_Color')
-        } else {
             u_Sampler = gl.getUniformLocation(program, 'u_ShadowMap')
         }
         
@@ -407,11 +404,8 @@ export default class extends React.Component {
         let projMatrixLight = new cuon.Matrix4() // 投影矩阵 1.根据三角形与视点的距离对三角形进行缩小， 2.对三角形进行平移（近大远小，透视法），3.定义可视空间
         let viewMatrixLight = new cuon.Matrix4() // 视图矩阵 改变视线
         let mvpMatrixLight = new cuon.Matrix4()
-        
+
         modelMatrix.setTranslate(this.state.translation.model2.translateX, this.state.translation.model2.translateY, this.state.translation.model2.translateZ);
-        // modelMatrix.rotate(this.state.translation.model2.rotateX, 1.0, 0.0, 0.0);
-        // modelMatrix.rotate(this.state.translation.model2.rotateY, 0.0, 1.0, 0.0);
-        // modelMatrix.rotate(this.state.translation.model2.rotateZ, 0.0, 0.0, 1.0);
         modelMatrix.rotate(-45, 0.0, 1.0, 1.0);
 
         viewMatrixLight.setLookAt(...this.state.lightAt, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
@@ -421,22 +415,22 @@ export default class extends React.Component {
         projMatrix.setPerspective(this.state.perspective.fov, this.state.perspective.perspective, this.state.perspective.gNear, this.state.perspective.gFar)
         viewMatrix.lookAt(...this.state.eyeAt, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
         mvpMatrix.set(projMatrix).multiply(viewMatrix).multiply(modelMatrix)
-
+        
         if (!frameBufferMode) {
             gl.bindBuffer(gl.ARRAY_BUFFER, buffer.colorPlane)
             gl.vertexAttribPointer(a_Color, buffer.colorPlane.num, buffer.colorPlane.type, false, 0, 0)
             gl.enableVertexAttribArray(a_Color)
             gl.uniformMatrix4fv(u_MvpMatrixFromLight, false, mvpMatrixLight.elements)
             gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrix.elements)
+            gl.uniform1i(u_Sampler, 0)
         } else {
             gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrixLight.elements)
-            gl.uniform1i(u_Sampler, 0)
         }
-        
+
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer.vertexPlane)
         gl.vertexAttribPointer(a_Position, buffer.vertexPlane.num, buffer.vertexPlane.type, false, 0, 0)
         gl.enableVertexAttribArray(a_Position)
-
+        
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer.indicePlane);
         gl.drawElements(gl.TRIANGLES, buffer.indicePlane.n,  buffer.indicePlane.type, 0);
     }
@@ -468,6 +462,7 @@ export default class extends React.Component {
         modelMatrix.rotate(this.state.translation.model1.rotateX, 1.0, 0.0, 0.0);
         modelMatrix.rotate(this.state.translation.model1.rotateY, 0.0, 1.0, 0.0);
         modelMatrix.rotate(this.state.translation.model1.rotateZ, 0.0, 0.0, 1.0);
+        
         viewMatrixLight.setLookAt(...this.state.lightAt, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
         projMatrixLight.setPerspective(this.state.perspectiveLight.fov, this.state.perspectiveLight.perspective, this.state.perspectiveLight.gNear, this.state.perspectiveLight.gFar)
         mvpMatrixLight.set(projMatrixLight).multiply(viewMatrixLight).multiply(modelMatrix)
@@ -482,6 +477,7 @@ export default class extends React.Component {
             gl.bindBuffer(gl.ARRAY_BUFFER, buffer.color)
             gl.vertexAttribPointer(a_Color, buffer.color.num, buffer.color.type, false, 0, 0)
             gl.enableVertexAttribArray(a_Color)
+            gl.uniform1i(u_Sampler, 0)
         } else {
             gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrixLight.elements)
         }
@@ -490,7 +486,7 @@ export default class extends React.Component {
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer.vertex)
         gl.vertexAttribPointer(a_Position, buffer.vertex.num, buffer.vertex.type, false, 0, 0)
         gl.enableVertexAttribArray(a_Position)
-
+        
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer.indice);
         gl.drawElements(gl.TRIANGLES, buffer.indice.n,  buffer.indice.type, 0);
     }
@@ -522,6 +518,10 @@ export default class extends React.Component {
             gl.depthMask(true)
         }
         // 开启混合
+
+        /**
+         * 混合需要关闭！
+         */
         if (this.state.blendEnable) {
             gl.enable(gl.BLEND)
             /**
@@ -619,39 +619,42 @@ export default class extends React.Component {
         }, 0)
     }
     rePaint1 (gl, p1, p2, framebuffer, buffer) {
-        let img = new Image()
-        img.onload = () => {
-            gl.activeTexture(gl.TEXTURE0); // Set a texture object to the texture unit
-            gl.bindTexture(gl.TEXTURE_2D, framebuffer.texture);
-            gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
-            this.resetGl(gl, [0, 0, 0, 1.0])
-            gl.viewport(0, 0, this.state.offScreen.width, this.state.offScreen.height)
-            /**
-             * 把内容绘制在framebuffer中，再把他们当作是texture绘制
-             */
-            this.drawTriangle(gl, p1, null, framebuffer, buffer, true)
-            this.drawPlane(gl, p1, null, framebuffer, buffer, true)
-            this.resetGl(gl, [0, 0, 0, 1.0])
-            gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-            gl.viewport(...this.state.viewport[1])
-            this.drawTriangle(gl, p2, null, framebuffer, buffer)
-            this.drawPlane(gl, p2, null, framebuffer, buffer)
-        }
-        img.src = pic
+        gl.activeTexture(gl.TEXTURE0); // Set a texture object to the texture unit
+        gl.bindTexture(gl.TEXTURE_2D, framebuffer.texture);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
+        gl.viewport(0, 0, this.state.offScreen.width, this.state.offScreen.height)
+        this.resetGl(gl, [0, 0, 0, 1.0])
+        
+        this.drawTriangle(gl, p1, null, framebuffer, buffer, true)
+        this.drawPlane(gl, p1, null, framebuffer, buffer, true)
+        
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+        this.resetGl(gl, [0, 0, 0, 1.0]) // reset要在bindFramebuffer之后
+        gl.viewport(...this.state.viewport[1])
+
+        this.drawTriangle(gl, p2, null, framebuffer, buffer)
+        this.drawPlane(gl, p2, null, framebuffer, buffer)
     }
-    rePaint(gl, p1, p2, fb, bf) {
-        this.rePaint1(gl, p1, p2, fb, bf)
+    rePaint() {
+        this.rePaint1(this.state.gl1, this.state.glPrograme1, this.state.glPrograme2, this.state.fb1, this.state.bf1)
     }
     componentDidMount() {
         const [gl1, p1, p2] = this.initWebglPrograme(this.refs.canvas1)
-        const buffers1 = this.state.bf1 = this.initBuffers(gl1)
-        const framebuffer1 = this.state.fb1 = this.initFrameBuffer(gl1)
+        const buffers1 = this.initBuffers(gl1)
+        const framebuffer1 = this.initFrameBuffer(gl1)
         this.setState(produce(draft => {
             draft.gl1 = gl1
             draft.glPrograme1 = p1
             draft.glPrograme2 = p2
+            draft.fb1 = framebuffer1
+            draft.bf1 = buffers1
         }))
-        this.rePaint(gl1, p1, p2, framebuffer1, buffers1)
+        setInterval(() => {
+            this.setState(produce(draft => {
+                draft.translation.model1.rotateY -= .5
+            }))
+            this.rePaint()
+        }, 20)
         // document.body.addEventListener('keydown', this.listenKeyDown.bind(this))
     }
     loadShader (gl, type, source) {
