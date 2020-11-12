@@ -80,8 +80,8 @@ export default class extends React.Component {
                 height: 400
             },
             offScreen: {
-                width: 2048,
-                height: 2048
+                width: 512, // 2048
+                height: 512 // 2048
             },
             viewport: {
                 1: [0, 0, 400, 400],
@@ -100,7 +100,7 @@ export default class extends React.Component {
                     translateY: 0,
                     translateZ: 0,
                     rotateX: 0,
-                    rotateY: -45,
+                    rotateY: 0,
                     rotateZ: -45
                 }
             },
@@ -406,7 +406,9 @@ export default class extends React.Component {
         let mvpMatrixLight = new cuon.Matrix4()
 
         modelMatrix.setTranslate(this.state.translation.model2.translateX, this.state.translation.model2.translateY, this.state.translation.model2.translateZ);
-        modelMatrix.rotate(-45, 0.0, 1.0, 1.0);
+        modelMatrix.rotate(this.state.translation.model2.rotateX, 1.0, 0.0, 0)
+        modelMatrix.rotate(this.state.translation.model2.rotateY, 0.0, 1.0, 0)
+        modelMatrix.rotate(this.state.translation.model2.rotateZ, 0.0, 0.0, 1)
 
         viewMatrixLight.setLookAt(...this.state.lightAt, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
         projMatrixLight.setPerspective(this.state.perspectiveLight.fov, this.state.perspectiveLight.perspective, this.state.perspectiveLight.gNear, this.state.perspectiveLight.gFar)
@@ -543,49 +545,45 @@ export default class extends React.Component {
     listenKeyDown (e) {
         e.preventDefault()
         switch (e.keyCode) {
-            case 87: //  W key -> Increase the maximum distance of fog
-                this.setState({
-                    fogDist: produce(this.state.fogDist, draft => {
-                        draft.far += 1
-                    })
-                })
-                break;
-            case 83: // S key -> Decrease the maximum distance of fog
-                if (this.state.fogDist.far > this.state.fogDist.near) {
-                    this.setState({
-                        fogDist: produce(this.state.fogDist, draft => {
-                            draft.far -= 1
-                        })
-                    })
-                }
-            break;
-            case 40: // Up arrow key -> the positive rotation of joint1 around the z-axis
-                this.setState({
-                    translation: produce(this.state.translation, draft => {
-                        draft.rotateX += 1
-                    })
-                })
-                break;
-            case 38: // Down arrow key -> the negative rotation of joint1 around the z-axis
-                this.setState({
-                    translation: produce(this.state.translation, draft => {
-                        draft.rotateX -= 1
-                    })
-                })
-                break;
+            // case 87: //  W key -> Increase the maximum distance of fog
+            //     this.setState({
+            //         fogDist: produce(this.state.fogDist, draft => {
+            //             draft.far += 1
+            //         })
+            //     })
+            //     break;
+            // case 83: // S key -> Decrease the maximum distance of fog
+            //     if (this.state.fogDist.far > this.state.fogDist.near) {
+            //         this.setState({
+            //             fogDist: produce(this.state.fogDist, draft => {
+            //                 draft.far -= 1
+            //             })
+            //         })
+            //     }
+            // break;
+            // case 40: // Up arrow key -> the positive rotation of joint1 around the z-axis
+            //     this.setState({
+            //         translation: produce(this.state.translation, draft => {
+            //             draft.rotateX += 1
+            //         })
+            //     })
+            //     break;
+            // case 38: // Down arrow key -> the negative rotation of joint1 around the z-axis
+            //     this.setState({
+            //         translation: produce(this.state.translation, draft => {
+            //             draft.rotateX -= 1
+            //         })
+            //     })
+            //     break;
             case 39: // Right arrow key -> the positive rotation of arm1 around the y-axis
-                this.setState({
-                    translation: produce(this.state.translation, draft => {
-                        draft.rotateY += 1
-                    })
-                })
+                this.setState(produce(draft => {
+                    draft.translation.model2.rotateZ += 1
+                }))
                 break;
             case 37: // Left arrow key -> the negative rotation of arm1 around the y-axis
-                this.setState({
-                    translation: produce(this.state.translation, draft => {
-                        draft.rotateY -= 1
-                    })
-                })
+                this.setState(produce(draft => {
+                    draft.translation.model2.rotateZ -= 1
+                }))
                 break;
             default:
                 break
@@ -655,7 +653,7 @@ export default class extends React.Component {
             }))
             this.rePaint()
         }, 20)
-        // document.body.addEventListener('keydown', this.listenKeyDown.bind(this))
+        document.body.addEventListener('keydown', this.listenKeyDown.bind(this))
     }
     loadShader (gl, type, source) {
         // Create shader object
@@ -688,14 +686,13 @@ export default class extends React.Component {
                 <p>深度缓冲区:{this.state.depthBufferLocked ? '锁定' : '解除锁定'}
                     <button  onClick={() => this.toggleDepthBuffer(true)}>锁定</button><button  onClick={() => this.toggleDepthBuffer(false)}>解除锁定</button>
                 </p>
-                <p>Blend模式:{this.state.blendEnable ? '开启' : '关闭'}
+                <p>Blend模式:{this.state.blendEnable ? '开启' : '关闭'}<br/>
+                    谨慎使用blend模式，会导致阴影绘制异常
                     <button  onClick={() => this.enableBlend(true)}>开启</button><button  onClick={() => this.enableBlend(false)}>关闭</button>
                 </p>
                 <p>renderbuffer depth buffer:{this.state.renderBufferDepthBufferEnable ? '开启' : '关闭'}</p>
                 <p>
                     viewport1: {JSON.stringify(this.state.viewport[1])}<br/>
-                    viewport2: {JSON.stringify(this.state.viewport[2])}<br/>
-                    viewport3: {JSON.stringify(this.state.viewport[3])}
                 </p>
                 <canvas className="webgl" width="400" height="400" ref="canvas1" style={{margin: 10 + 'px'}}></canvas>
             </div>
