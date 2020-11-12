@@ -45,7 +45,12 @@ var FSHADER_SOURCE =
   '  vec3 shadowCoord = (v_PositionFromLight.xyz/v_PositionFromLight.w)/2.0 + 0.5;\n' + // 顶点坐标[-1,1] -> 纹理坐标[0,1]
   '  vec4 rgbaDepth = texture2D(u_ShadowMap, shadowCoord.xy);\n' +
   '  float depth = rgbaDepth.r;\n' + // Retrieve the z-value from R
-  '  float visibility = (shadowCoord.z > depth + 0.005) ? 0.7 : 1.0;\n' + // +0.005 防止马赫带
+
+    /**
+     * 为了防止精度丢失带来的等值比较失效问题，可以将一个数字的小数部分分成几段，每一段分别提取出来，保存到一个变量中。最后取他们的和，进行大小比较
+     */
+
+  '  float visibility = (shadowCoord.z > depth + 0.005) ? 0.7 : 1.0;\n' + // +0.005 精度丢失，防止马赫带
   '  gl_FragColor = vec4(v_Color.rgb * visibility, v_Color.a);\n' +
   '}\n';
 
