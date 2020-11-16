@@ -15,7 +15,8 @@ export default class extends React.Component {
                 vertex: null,
                 normal: null,
                 text: null,
-                indice: null
+                indice: null,
+                color: null,
             },
             points: [],
             perspective: {
@@ -32,11 +33,11 @@ export default class extends React.Component {
             },
             translation: {
                 model1: {
-                    translateX: -2,
+                    translateX: 0,
                     translateY: 0,
                     translateZ: 0,
-                    rotateX: 20,
-                    rotateY: 10,
+                    rotateX: 0,
+                    rotateY: 0,
                     rotateZ: 0
                 },
                 model2: {
@@ -107,16 +108,15 @@ export default class extends React.Component {
         this.state.glPrograme1 = program1
         return gl
     }
-    initBuffers (gl) {
+    initBuffers (gl, objDoc) {
         // 设置顶点
-        const vertices = new Float32Array([]);
-       
-        const colors = new Float32Array([ ]);
-        const normals = new Float32Array([ ]);
-       
-        const texCoords = new Float32Array([]);
 
-        const indices = new Uint8Array([]);
+        const drawINFO = objDoc.getDrawingInfo()
+        console.warn('obj drawInfo:', drawINFO, this.state.buffer)
+        const vertices = drawINFO.vertices
+        const colors = drawINFO.colors
+        const normals = drawINFO.normals
+        const indices = drawINFO.indices
 
 
         /**
@@ -127,39 +127,41 @@ export default class extends React.Component {
         let vertixBuffer = gl.createBuffer() // 缓冲区对象
         let indexBuffer = gl.createBuffer()
         let normalBuffer = gl.createBuffer()
-        let textBuffer = gl.createBuffer()
         let colorBuffer = gl.createBuffer()
 
-        if (!vertixBuffer || !indexBuffer || !normalBuffer || !textBuffer || !colorBuffer) {
+        if (!vertixBuffer || !indexBuffer || !normalBuffer || !colorBuffer) {
             console.warn('缓冲区对象创建失败')
             return -1
         }
-        const FSIZE = vertices.BYTES_PER_ELEMENT;
 
         gl.bindBuffer(gl.ARRAY_BUFFER, vertixBuffer)
         gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW)
         vertixBuffer.num = 3
         vertixBuffer.type = gl.FLOAT
-        this.state.buffer.vertex = vertixBuffer
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer)
+        gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW)
+        colorBuffer.num = 3
+        colorBuffer.type = gl.FLOAT
 
         gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer)
         gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW)
-        normalBuffer.num = 3
+        normalBuffer.num = 4
         normalBuffer.type = gl.FLOAT
-        this.state.buffer.normal = normalBuffer
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW)
         indexBuffer.num = 1
         indexBuffer.type = gl.UNSIGNED_BYTE
-        this.state.buffer.indice = indexBuffer
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, textBuffer)
-        gl.bufferData(gl.ARRAY_BUFFER, texCoords, gl.STATIC_DRAW)
-        textBuffer.num = 2
-        textBuffer.type = gl.FLOAT
-        this.state.buffer.text = textBuffer
         gl.n = indices.length
+
+        this.setState(produce(draft => {
+            draft.buffer.vertex = vertixBuffer
+            draft.buffer.color = colorBuffer
+            draft.buffer.normal = normalBuffer
+            draft.buffer.indice = indexBuffer
+        }))
+
     }
     initTexture (gl, program, img) {
         let texture = gl.createTexture()
@@ -178,6 +180,7 @@ export default class extends React.Component {
 
         let a_Position = gl.getAttribLocation(program, 'a_Position')
         let a_Normal = gl.getAttribLocation(program, 'a_Normal')
+        let a_Color = gl.getAttribLocation(program, 'a_Color')
         let u_MvpMatrix = gl.getUniformLocation(program, 'u_MvpMatrix')
         let u_NormalMatrix = gl.getUniformLocation(program, 'u_NormalMatrix')
 
@@ -186,7 +189,6 @@ export default class extends React.Component {
         let modelMatrix = new cuon.Matrix4() // 模型矩阵，同一组顶点多次便宜，叠加绘制
         let mvpMatrix = new cuon.Matrix4() // 模型视图投影矩阵 = 投影矩阵 x 视图矩阵 x 模型矩阵
         let normalMaytrix = new cuon.Matrix4() // 模型矩阵的逆转置矩阵 x 原法向量 = 变换后的法向量
-
 
         modelMatrix.setTranslate(this.state.translation.model1.translateX, 0.0, 0.0);
         modelMatrix.rotate(this.state.translation.model1.rotateX, 1.0, 0.0, 0.0);
@@ -203,6 +205,10 @@ export default class extends React.Component {
         gl.bindBuffer(gl.ARRAY_BUFFER, this.state.buffer.vertex)
         gl.vertexAttribPointer(a_Position, this.state.buffer.vertex.num, this.state.buffer.vertex.type, false, 0, 0)
         gl.enableVertexAttribArray(a_Position)
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.state.buffer.color)
+        gl.vertexAttribPointer(a_Color, this.state.buffer.color.num, this.state.buffer.color.type, false, 0, 0)
+        gl.enableVertexAttribArray(a_Color)
 
         // 激活变量前 先要绑定buffer
         gl.bindBuffer(gl.ARRAY_BUFFER, this.state.buffer.normal)
@@ -353,9 +359,12 @@ export default class extends React.Component {
     }
     componentDidMount() {
         const gl = this.initWebglPrograme()
-        this.initBuffers(gl)
-        this.rePaint(gl)
-        this.loadOBJFile('/webgl/cube.obj', gl, '', '', '')
+        
+        this.loadOBJFile('/webgl/cube.obj', gl, (resp) => {
+            const objDoc = this.getObjDoc(resp, '/webgl/cube.obj', gl, null, 60, true)
+            this.initBuffers(gl, objDoc)
+            this.rePaint(gl, objDoc)
+        })
         // document.body.addEventListener('keydown', this.listenKeyDown.bind(this))
     }
     loadShader (gl, type, source) {
@@ -380,19 +389,18 @@ export default class extends React.Component {
         return shader;
     }
     // Read a file
-    loadOBJFile(fileName, gl, model, scale, reverse) {
+    loadOBJFile(fileName, gl, cb) {
         var request = new XMLHttpRequest();
-    
         request.onreadystatechange = () => {
             if (request.readyState === 4 && request.status !== 404) {
-                this.onReadOBJFile(request.responseText, fileName, gl, 60, true);
+                cb(request.responseText);
             }
         }
         request.open('GET', fileName, true); // Create a request to acquire the file
         request.send();                      // Send the request
     }
     // OBJ File has been read
-    onReadOBJFile (fileString, fileName, gl, o, scale, reverse) {
+    getObjDoc (fileString, fileName, gl, o, scale, reverse) {
         var objDoc = new OBJDoc(fileName);  // Create a OBJDoc object
         var result = objDoc.parse(fileString, scale, reverse); // Parse the file
         if (!result) {
@@ -403,6 +411,7 @@ export default class extends React.Component {
         this.setState(produce(draft => {
             draft.glObjDoc = objDoc
         }))
+        return objDoc
     }
     render() {
         return (

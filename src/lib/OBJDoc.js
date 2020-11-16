@@ -4,6 +4,21 @@ import MTLDoc from './MTLDoc'
 
 
 import nomralUtils from './Normal'
+
+var Color = function(r, g, b, a) {
+  this.r = r;
+  this.g = g;
+  this.b = b;
+  this.a = a;
+}
+
+var DrawingInfo = function(vertices, normals, colors, indices) {
+  this.vertices = vertices;
+  this.normals = normals;
+  this.colors = colors;
+  this.indices = indices;
+}
+
 // Analyze the material file
 function onReadMTLFile(fileString, mtl) {
     var lines = fileString.split('\n');  // Break up into lines and store them as array
@@ -225,6 +240,72 @@ var OBJDoc = function(fileName) {
   
     return face;
   }
+
+  // Retrieve the information for drawing 3D model
+OBJDoc.prototype.getDrawingInfo = function() {
+  // Create an arrays for vertex coordinates, normals, colors, and indices
+  var numIndices = 0;
+  for(var i = 0; i < this.objects.length; i++){
+    numIndices += this.objects[i].numIndices;
+  }
+  var numVertices = numIndices;
+  var vertices = new Float32Array(numVertices * 3);
+  var normals = new Float32Array(numVertices * 3);
+  var colors = new Float32Array(numVertices * 4);
+  var indices = new Uint16Array(numIndices);
+
+  // Set vertex, normal and color
+  var index_indices = 0;
+  for(var i = 0; i < this.objects.length; i++){
+    var object = this.objects[i];
+    for(var j = 0; j < object.faces.length; j++){
+      var face = object.faces[j];
+      var color = this.findColor(face.materialName);
+      var faceNormal = face.normal;
+      for(var k = 0; k < face.vIndices.length; k++){
+        // Set index
+        indices[index_indices] = index_indices;
+        // Copy vertex
+        var vIdx = face.vIndices[k];
+        var vertex = this.vertices[vIdx];
+        vertices[index_indices * 3 + 0] = vertex.x;
+        vertices[index_indices * 3 + 1] = vertex.y;
+        vertices[index_indices * 3 + 2] = vertex.z;
+        // Copy color
+        colors[index_indices * 4 + 0] = color.r;
+        colors[index_indices * 4 + 1] = color.g;
+        colors[index_indices * 4 + 2] = color.b;
+        colors[index_indices * 4 + 3] = color.a;
+        // Copy normal
+        var nIdx = face.nIndices[k];
+        if(nIdx >= 0){
+          var normal = this.normals[nIdx];
+          normals[index_indices * 3 + 0] = normal.x;
+          normals[index_indices * 3 + 1] = normal.y;
+          normals[index_indices * 3 + 2] = normal.z;
+        }else{
+          normals[index_indices * 3 + 0] = faceNormal.x;
+          normals[index_indices * 3 + 1] = faceNormal.y;
+          normals[index_indices * 3 + 2] = faceNormal.z;
+        }
+        index_indices ++;
+      }
+    }
+  }
+
+  return new DrawingInfo(vertices, normals, colors, indices);
+}
+OBJDoc.prototype.findColor = function(name){
+  for(var i = 0; i < this.mtls.length; i++){
+    for(var j = 0; j < this.mtls[i].materials.length; j++){
+      if(this.mtls[i].materials[j].name == name){
+        return(this.mtls[i].materials[j].color)
+      }
+    }
+  }
+  return(new Color(0.8, 0.8, 0.8, 1));
+}
+
 
   export default OBJDoc
 
