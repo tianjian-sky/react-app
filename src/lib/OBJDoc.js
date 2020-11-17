@@ -70,67 +70,76 @@ var OBJDoc = function(fileName) {
   // Parsing the OBJ file
   OBJDoc.prototype.parse = function(fileString, scale, reverse) {
     var lines = fileString.split('\n');  // Break up into lines and store them as array
-    lines.push(null); // Append null
-    var index = 0;    // Initialize index of line
-  
-    var currentObject = null;
-    var currentMaterialName = "";
+    var thread = 0
+    var resp = new Promise((resolve, reject) => {
+      lines.push(null); // Append null
+      var index = 0;    // Initialize index of line
     
-    // Parse line by line
-    var line;         // A string in the line to be parsed
-    var sp = new StringParser();  // Create StringParser
-    while ((line = lines[index++]) != null) {
-      sp.init(line);                  // init StringParser
-      var command = sp.getWord();     // Get command
-      if(command == null)	 continue;  // check null command
-  
-      switch(command){
-        case '#':
-            continue;  // Skip comments
-        case 'mtllib':     // Read Material chunk
-            var path = this.parseMtllib(sp, this.fileName);
-            var mtl = new MTLDoc.MTLDoc();   // Create MTL instance
-            this.mtls.push(mtl);
-            var request = new XMLHttpRequest();
-            request.onreadystatechange = function() {
-            if (request.readyState == 4) {
-                if (request.status != 404) {
-                onReadMTLFile(request.responseText, mtl);
-                }else{
-                mtl.complete = true;
+      var currentObject = null;
+      var currentMaterialName = "";
+      
+      // Parse line by line
+      var line;         // A string in the line to be parsed
+      var sp = new StringParser();  // Create StringParser
+      while ((line = lines[index++]) != null) {
+        sp.init(line);                  // init StringParser
+        var command = sp.getWord();     // Get command
+        if(command == null)	 continue;  // check null command
+    
+        switch(command){
+          case '#':
+              continue;  // Skip comments
+          case 'mtllib':     // Read Material chunk
+              thread++
+              var path = this.parseMtllib(sp, this.fileName);
+              var mtl = new MTLDoc.MTLDoc();   // Create MTL instance
+              this.mtls.push(mtl);
+              var request = new XMLHttpRequest();
+              request.onreadystatechange = (e) => {
+                if (e.target.readyState == 4) {
+                    if (e.target.status != 404) {
+                      onReadMTLFile(e.target.responseText, mtl)
+                      if (--thread === 0) {
+                        resolve(this)
+                      }
+                    }else{
+                      mtl.complete = true;
+                    }
                 }
-            }
-            }
-            request.open('GET', path, true);  // Create a request to acquire the file
-            request.send();                   // Send the request
-            continue; // Go to the next line
-        case 'o':
-        case 'g':   // Read Object name
-            var object = this.parseObjectName(sp);
-            this.objects.push(object);
-            currentObject = object;
-            continue; // Go to the next line
-        case 'v':   // Read vertex
-            var vertex = this.parseVertex(sp, scale);
-            this.vertices.push(vertex); 
-            continue; // Go to the next line
-        case 'vn':   // Read normal
-            var normal = this.parseNormal(sp);
-            this.normals.push(normal); 
-            continue; // Go to the next line
-        case 'usemtl': // Read Material name
-            currentMaterialName = this.parseUsemtl(sp);
-            continue; // Go to the next line
-        case 'f': // Read face
-            var face = this.parseFace(sp, currentMaterialName, this.vertices, reverse);
-            currentObject.addFace(face);
-            continue; // Go to the next line
-            default:
-                break
+              }
+              request.open('GET', path, true);  // Create a request to acquire the file
+              request.send();                   // Send the request
+              continue; // Go to the next line
+          case 'o':
+          case 'g':   // Read Object name
+              var object = this.parseObjectName(sp);
+              this.objects.push(object);
+              currentObject = object;
+              continue; // Go to the next line
+          case 'v':   // Read vertex
+              var vertex = this.parseVertex(sp, scale);
+              this.vertices.push(vertex);
+              continue; // Go to the next line
+          case 'vn':   // Read normal
+              var normal = this.parseNormal(sp);
+              this.normals.push(normal);
+              continue; // Go to the next line
+          case 'usemtl': // Read Material name
+              currentMaterialName = this.parseUsemtl(sp);
+              continue; // Go to the next line
+          case 'f': // Read face
+              var face = this.parseFace(sp, currentMaterialName, this.vertices, reverse);
+              currentObject.addFace(face);
+              continue; // Go to the next line
+              default:
+                  break
+        }
       }
-    }
-  
-    return true;
+      if (thread === 0) {
+        resolve(this)
+      }
+    })
+    return resp
   }
   
   OBJDoc.prototype.parseMtllib = function(sp, fileName) {

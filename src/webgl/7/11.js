@@ -141,19 +141,18 @@ export default class extends React.Component {
 
         gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer)
         gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW)
-        colorBuffer.num = 3
+        colorBuffer.num = 4
         colorBuffer.type = gl.FLOAT
 
         gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer)
         gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW)
-        normalBuffer.num = 4
+        normalBuffer.num = 3
         normalBuffer.type = gl.FLOAT
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW)
-        indexBuffer.num = 1
-        indexBuffer.type = gl.UNSIGNED_BYTE
-        gl.n = indices.length
+        indexBuffer.size = drawINFO.indices.length
+        indexBuffer.type = gl.UNSIGNED_SHORT // 解析得到的indices数组是Uint16Array
 
         this.setState(produce(draft => {
             draft.buffer.vertex = vertixBuffer
@@ -227,7 +226,7 @@ export default class extends React.Component {
          * type:指定元素数组缓冲区中的值的类型
          * offset:指定元素数组缓冲区中的偏移量
          */
-        gl.drawElements(gl.TRIANGLES, gl.n, gl.UNSIGNED_BYTE, 0)
+        gl.drawElements(gl.TRIANGLES, this.state.buffer.indice.size, this.state.buffer.indice.type, 0)
     }
     resetGl (gl) {
         gl.clearColor(0.2, 0.2, 0.2, 1.0);
@@ -354,16 +353,24 @@ export default class extends React.Component {
         }, 0)
     }
     rePaint (gl) {
-        this.resetGl(gl)
-        this.draw1(gl, this.state.glPrograme1)
+        setInterval(() => {
+            this.setState(produce(draft => {
+                draft.translation.model1.rotateX += 1
+                draft.translation.model1.rotateY += 1
+                draft.translation.model1.rotateZ += 1
+            }))
+            this.resetGl(gl)
+            this.draw1(gl, this.state.glPrograme1)
+        }, 50)
     }
     componentDidMount() {
         const gl = this.initWebglPrograme()
         
         this.loadOBJFile('/webgl/cube.obj', gl, (resp) => {
-            const objDoc = this.getObjDoc(resp, '/webgl/cube.obj', gl, null, 60, true)
-            this.initBuffers(gl, objDoc)
-            this.rePaint(gl, objDoc)
+            this.getObjDoc(resp, '/webgl/cube.obj', gl, null, 60, true).then(objDoc => {
+                this.initBuffers(gl, objDoc)
+                this.rePaint(gl, objDoc)
+            })
         })
         // document.body.addEventListener('keydown', this.listenKeyDown.bind(this))
     }
@@ -402,16 +409,18 @@ export default class extends React.Component {
     // OBJ File has been read
     getObjDoc (fileString, fileName, gl, o, scale, reverse) {
         var objDoc = new OBJDoc(fileName);  // Create a OBJDoc object
-        var result = objDoc.parse(fileString, scale, reverse); // Parse the file
-        if (!result) {
-            console.log("OBJ file parsing error.");
-            return;
-        }
-        console.log('objDoc:', objDoc)
-        this.setState(produce(draft => {
-            draft.glObjDoc = objDoc
-        }))
-        return objDoc
+        return objDoc.parse(fileString, scale, reverse)
+        .then(result => {
+            if (!result) {
+                console.log("OBJ file parsing error.");
+                return;
+            }
+            console.log('objDoc:', objDoc)
+            this.setState(produce(draft => {
+                draft.glObjDoc = objDoc
+            }))
+            return objDoc
+        })
     }
     render() {
         return (
