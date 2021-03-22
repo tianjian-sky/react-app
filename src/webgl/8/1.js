@@ -24,12 +24,15 @@ export default class extends React.Component {
                 rotateJoint: 0,
                 armLength: 10
             },
-            depthTestEnable: true
+            depthTestEnable: true,
+            stencilTestEnable: true,
         }
     }
     draw() {
         let c = this.refs.canvas
-        let gl = c.getContext('webgl')
+        let gl = c.getContext('webgl', {
+            stencil: true
+        })
         this.state.gl = gl
 
         // 顶点着色器
@@ -95,26 +98,58 @@ export default class extends React.Component {
             0, 1, 0, 1,
             0, 0, 1, 1
         ]
+
+        gl.clearColor(0,0.222,.333,1)
+        gl.clear(gl.COLOR_BUFFER_BIT)
+        if (this.state.stencilTestEnable) {
+            gl.enable(gl.STENCIL_TEST)
+        }
+
         let aPos = gl.getAttribLocation(gl.program, 'aPos')
         let aColor = gl.getAttribLocation(gl.program, 'aColor')
 
+        const colorBuffer = gl.createBuffer() // 缓冲区对象
+        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(stencil_color), gl.STATIC_DRAW);
+        gl.vertexAttribPointer(aColor, 4, gl.FLOAT, false, 0, 0) // 绑定buffer到vertex attribute
+        gl.enableVertexAttribArray(aColor) // 激活每一个属性以便使用，不被激活的属性是不会被使用的。一旦激活，以下其他方法就可以获取到属性的值了，包括vertexAttribPointer()，vertexAttrib*()，和 getVertexAttrib()。
+
+        // Always pass test
+        gl.stencilFunc(gl.ALWAYS, 1, 0xff);
+        gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+        gl.stencilMask(0xff);
+        gl.clear(gl.STENCIL_BUFFER_BIT);
+        // No need to display the triangle
+        gl.colorMask(0, 0, 0, 0);
 
         const vertixBuffer = gl.createBuffer() // 缓冲区对象
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertixBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(stencilVertex), gl.STATIC_DRAW);
+        gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0) // 绑定buffer到vertex attribute
+        gl.enableVertexAttribArray(aPos) // 激活每一个属性以便使用，不被激活的属性是不会被使用的。一旦激活，以下其他方法就可以获取到属性的值了，包括vertexAttribPointer()，vertexAttrib*()，和 getVertexAttrib()。
+
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+        // Pass test if stencil value is 1
+        gl.stencilFunc(gl.EQUAL, 1, 0xFF);
+        gl.stencilMask(0x00);
+        gl.colorMask(1, 1, 1, 1);
+        
+        
+        // draw the clipped triangle
         gl.bindBuffer(gl.ARRAY_BUFFER, vertixBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertex), gl.STATIC_DRAW);
         gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0) // 绑定buffer到vertex attribute
         gl.enableVertexAttribArray(aPos) // 激活每一个属性以便使用，不被激活的属性是不会被使用的。一旦激活，以下其他方法就可以获取到属性的值了，包括vertexAttribPointer()，vertexAttrib*()，和 getVertexAttrib()。
 
-        const colorBuffer = gl.createBuffer() // 缓冲区对象
         gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(color), gl.STATIC_DRAW);
         gl.vertexAttribPointer(aColor, 4, gl.FLOAT, false, 0, 0) // 绑定buffer到vertex attribute
         gl.enableVertexAttribArray(aColor) // 激活每一个属性以便使用，不被激活的属性是不会被使用的。一旦激活，以下其他方法就可以获取到属性的值了，包括vertexAttribPointer()，vertexAttrib*()，和 getVertexAttrib()。
 
         
-        gl.clearColor(0,0.222,.333,1)
-        gl.clear(gl.COLOR_BUFFER_BIT)
-
+        
+        
         // // 深度检测开启
         if (this.state.depthTestEnable) {
             gl.enable(gl.DEPTH_TEST)
