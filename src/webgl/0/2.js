@@ -19,6 +19,7 @@ export default class extends React.Component {
             setInterval(() => {
                 this.frameImg(ctx1, img)
             }, 100)
+            // const ctx2 = c2.getContext('2d') //  Cannot get context from a canvas that has transferred its control to offscreen.
             const imgBItmap = createImageBitmap(img).then(res => {
                 console.log('img bitmap', res)
                 let worker = new Worker('/render.worker.js')
@@ -27,7 +28,6 @@ export default class extends React.Component {
                     img: res // 往worker里不能直接传img。
                 }, [offscreenCanvas]) // OffscreenCanvas could not be cloned because it was not transferred.
             })
-            
         }
     }
     componentDidMount() {
