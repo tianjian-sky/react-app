@@ -143,9 +143,28 @@ export default class extends React.Component {
 
         gl.clearColor(0, 0.222, .333, 1)
         gl.clear(gl.COLOR_BUFFER_BIT)
-        // gl.drawArrays(gl.TRIANGLES, 0, gl.n)
-        gl.drawArraysInstanced(gl.TRIANGLES, 0, gl.indicesLenth, this.state.count * this.state.count);
-        // gl.drawElementsInstanced(gl.TRIANGLES, gl.indicesLenth, gl.UNSIGNED_SHORT, 0, 1);
+        // 非instance
+        {
+            // 方法1: gl.drawElements
+            {
+                // gl.drawElements(gl.TRIANGLES, gl.n, gl.UNSIGNED_BYTE, 0)
+            }
+            // 方法2: gl.drawArraysInstanced
+            {
+                // gl.drawArrays(gl.TRIANGLES, 0, gl.n)
+            }
+        }
+        // instance
+        {
+            // 方法1: gl.drawArraysInstanced
+            {
+                gl.drawArraysInstanced(gl.TRIANGLES, 0, gl.indicesLenth, this.state.count * this.state.count);
+            }
+            // 方法2: gl.drawElementsInstanced
+            {
+                // gl.drawElementsInstanced(gl.TRIANGLES, gl.indicesLenth, gl.UNSIGNED_BYTE, 0, this.state.count * this.state.count);
+            }
+        }
     }
     listenKeyDown(e) {
         e.preventDefault()
