@@ -27,6 +27,8 @@ export default class extends React.Component {
             attribute vec4 a_Position;
             attribute vec4 a_Color;
             attribute vec4 a_Offset;
+            varying vec2 instanceTransform0;
+            varying vec2 instanceTransform1;
             // layout(location=2) in vec4 a_Offset;
             // uniform mat4 u_ViewMatrix;
             varying vec4 v_Color;
@@ -61,12 +63,17 @@ export default class extends React.Component {
         }
         offsetArray = new Float32Array(offsetArray)
 
-
         // 一个 WebGLProgram 对象由两个编译过后的 WebGLShader 组成 - 顶点着色器和片段着色器（均由 GLSL 语言所写）。这些组合成一个可用的 WebGL 着色器程序。
         gl.attachShader(program, vshader);
         gl.attachShader(program, fshader);
 
         gl.linkProgram(program);
+
+        const numAttribs = gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES); // link 后可以打印出Active attributes
+        for (let i = 0; i < numAttribs; ++i) {
+            const info = gl.getActiveAttrib(program, i);
+            console.log('getProgramParameter:', info.name, 'type:', info.type, 'size:', info.size);
+        }
 
         if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
             const info = gl.getProgramInfoLog(program);
