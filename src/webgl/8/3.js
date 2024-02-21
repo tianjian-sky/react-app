@@ -262,6 +262,26 @@ export default class extends React.Component {
             this.resetVp()
         }, 100)
     }
+    changeCanvasStyle(e, type) {
+        let v = e.target.value
+        this.setState(props => {
+            props.canvasStyle[type] = v
+            return props
+        })
+        setTimeout(() => {
+            this.rePaint(this.state.gl)
+        }, 0)
+    }
+    changeCanvasState(e, type) {
+        let v = e.target.value
+        this.setState(props => {
+            props.canvas[type] = v
+            return props
+        })
+        setTimeout(() => {
+            this.rePaint(this.state.gl)
+        }, 0)
+    }
     initVp() {
         this.setState(props => {
             props.dpr = window.devicePixelRatio
@@ -296,6 +316,8 @@ export default class extends React.Component {
     render() {
         let dpr = this.state.dpr
         let vp = this.state.viewport
+        let style = this.state.canvasStyle
+        let canvasState = this.state.canvas
         return (
             <div id="8-3" className="webgl contaner">
                 <h3 className="title">{this.state.title}</h3>
@@ -319,6 +341,13 @@ export default class extends React.Component {
                     top: <input type="number" value={vp.top} onChange={(e) => this.changeVp(e, 'top')} /><br />
                     width: <input type="number" value={vp.width} onChange={(e) => this.changeVp(e, 'width')} /><br />
                     height: <input type="number" value={vp.height} onChange={(e) => this.changeVp(e, 'height')} /><br />
+                </p>
+                <p>
+                    canvas:<br />
+                    style.width: <input type="number" value={style.width} onChange={(e) => this.changeCanvasStyle(e, 'width')} /><br />
+                    style.height: <input type="number" value={style.height} onChange={(e) => this.changeCanvasStyle(e, 'height')} /><br />
+                    canvas.width: <input type="number" value={canvasState.width} onChange={(e) => this.changeCanvasState(e, 'width')} /><br />
+                    canvas.height: <input type="number" value={canvasState.height} onChange={(e) => this.changeCanvasState(e, 'height')} /><br />
                 </p>
                 <canvas className="webgl" style={{ width: this.state.canvasStyle.width + 'px', height: this.state.canvasStyle.height + 'px' }} width={this.state.canvas.width} height={this.state.canvas.height} ref="canvas" onTouchStart={(e) => this.handleTouchStart(e)}></canvas>
             </div>
